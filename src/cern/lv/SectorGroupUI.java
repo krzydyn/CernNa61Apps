@@ -17,7 +17,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 
-import common.Logger;
+import sys.Logger;
 
 @SuppressWarnings("serial")
 class SectorGroupUI extends JPanel implements ActionListener
@@ -36,6 +36,7 @@ class SectorGroupUI extends JPanel implements ActionListener
 		this.hgap=hgap;
 		this.vgap=vgap;
 	}
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		if (ctrl==null) return ;
 		String cmd=ev.getActionCommand();
@@ -121,6 +122,7 @@ class SectorGroupUI extends JPanel implements ActionListener
 			super.putValue(ACTION_COMMAND_KEY, cmd);
 			super.putValue(NAME, nm);
 		}
+		@Override
 		public void actionPerformed(ActionEvent e) {
 			if (grp.size()==0 || ctrl.isLocked()) return ;
 			String cmd=e.getActionCommand();

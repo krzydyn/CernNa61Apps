@@ -45,10 +45,11 @@ import plot.PlotTime;
 import plot.PlotXY;
 import plot.PlotXY.ChannelParams;
 import plot.PlotXY.PlotListener;
+import sys.ui.CheckBoxIcon;
+import sys.ui.UiUtils;
 import channel.ChannelDef;
 import channel.ui.ChannelSelector;
-import common.ui.CheckBoxIcon;
-import common.ui.UiUtils;
+
 
 @SuppressWarnings("serial")
 public class GraphView extends MeasView implements PlotListener,ActionListener {
@@ -78,9 +79,11 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 	static {
 		//chooser.setCurrentDirectory(new File("."));
 		chooser.setFileFilter(new FileFilter(){
+			@Override
 			public boolean accept(File f) {
 				return f.isDirectory()||f.getName().endsWith(".csv");
 			}
+			@Override
 			public String getDescription() {
 				return "CSV files";
 			}
@@ -89,7 +92,9 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 
 	private static List<ChannelDef> availDefs=null;
 	private JPanel title=new JPanel(new GridBagLayout());
-	private JLabel lname=new JLabel(),ltime=new JLabel("N/A"),lvalue=new JLabel("N/A");
+	private final JLabel lname=new JLabel();
+	private JLabel ltime=new JLabel("N/A");
+	private JLabel lvalue=new JLabel("N/A");
 	private PlotTime plot=new PlotTime();
 	private PlotListener caretLitener;
 	final boolean hist;
@@ -103,7 +108,7 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 
 		this.hist=hist;
 		title.setBorder(emptyBorder);
-		
+
 		lname.setHorizontalAlignment(SwingConstants.CENTER);
 		lname.setFont(hist?namefont1:namefont2);
 		lname.setBorder(raisedBorder);
@@ -160,6 +165,7 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 			mi.addActionListener(this);
 			plot.addPopupItem(mi);
 			addKeyListener(new KeyAdapter(){
+				@Override
 				public void keyPressed(KeyEvent ev){
 					if (ev.isControlDown()&&ev.getKeyCode()==KeyEvent.VK_S)
 						saveasAction();
@@ -176,6 +182,7 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 			plot.setSelMode(PlotXY.SELECTION_NONE);
 		}
 	}
+	@Override
 	public void actionPerformed(ActionEvent ev){
 		final String cmd=ev.getActionCommand();
 		if ("saveas".equals(cmd)) saveasAction();
@@ -216,6 +223,7 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 		long to=plot.double2time(r2d.getMaxX())+60;
 		final DataSaver p=new DataSaver(vci,f,fr,to);
 		new Thread(new Runnable(){
+			@Override
 			public void run(){
 				running=Thread.currentThread();
 				try{p.save();}
@@ -232,20 +240,21 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 	public void setRange(double x,double y){plot.setRange(x, y);}
 	public void clear(){plot.clear();}
 
+	@Override
 	public void setChnInfo(ViewChannelsInfo pi) {
 		super.setChnInfo(pi);
 		//if (pi.defs.get(0).id==1)
 		//	log.debug("color=%s",plot.getParams(0).color.toString());
 		long tm=System.currentTimeMillis()/1000;
-		int defs=vci.defs.size();		
-		
+		int defs=vci.defs.size();
+
 		if (hist) plot.setAutoBounds(PlotXY.AUTOBOUNDS_NONE,PlotXY.AUTOBOUNDS_SCALE);
 		else plot.setAutoBounds(PlotXY.AUTOBOUNDS_MOVE,PlotXY.AUTOBOUNDS_NONE);
-		
+
 		title.removeAll();
 		plot.clear();
 		plot.selectChannel(0);
-		
+
 		ChannelDef def;
 		GridBagConstraints constr = new GridBagConstraints();
 		Insets lins=new Insets(0, 0, 0, 2);
@@ -253,7 +262,7 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 		constr.fill = GridBagConstraints.BOTH;
 		constr.anchor = GridBagConstraints.LINE_START;
 		constr.weighty=0;
-		
+
 		ButtonGroup bgrp=null;
 		if (defs>1) bgrp=new ButtonGroup();
 		for (int i=0; i<defs; ++i) {
@@ -285,33 +294,36 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 				constr.insets=lori;
 				title.add(chkbx,constr);
 			}
-			
+
 			def=vci.defs.get(i);
 			l.setText(def.descr);
 			this.setToolTipText(String.format("%s [%d]",def.descr,def.id));
 		}
-		
+
 		if (defs>0) {
 			def=vci.defs.get(plot.getSelectedChannel());
 			plot.setUnit("time",def.unit);
 			lname.setText(def.name);
 			plot.setLimis(def.lLimits, def.uLimits);
 		}
-		
+
 		Rectangle2D v=plot.getView();
 		plot.setView(plot.time2double(tm)-v.getWidth(),v.getY(),v.getWidth(),v.getHeight());
 	}
+	@Override
 	public void currentTime(long tm){
 		Rectangle2D v=plot.getView();
 		v.setRect(plot.time2double(tm)-v.getWidth(),v.getY(),v.getWidth(),v.getHeight());
 		plot.setCaret(v.getMaxX(),plot.getCaret().getY());
 	}
+	@Override
 	public void addValue(ChannelDef def,long tm,float v) {
 		int i=vci.defs.indexOf(def);
 		if (i<0) return ;
 		plot.addPoint(i,tm,(double)v);
 	}
 	//public void addPoint(double x,double y) { plot.addPoint(x, y); }
+	@Override
 	public void addValues(ChannelDef def,List<PntData> v) {
 		int chn=vci.defs.indexOf(def);
 		if (chn<0 || v.size()==0) return ;
@@ -338,6 +350,7 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 		if (noauto)
 			plot.setAutoBounds(PlotXY.AUTOBOUNDS_NONE,PlotXY.AUTOBOUNDS_NONE);
 	}
+	@Override
 	public void caretChanged(PlotXY p) {
 		if (p!=plot) return ;
 		long tm=plot.getCaretTime();
@@ -359,13 +372,14 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 		if (caretLitener!=null) caretLitener.caretChanged(plot);
 		//requestFocusInWindow();
 	}
+	@Override
 	public void viewChanged(PlotXY pl,Rectangle2D oldview,int opt) {
 		if (vci==null) return ;
 		if ((opt&(PlotXY.CHANGED_X|PlotXY.CHANGED_W))==0) { return ; }
 		Rectangle2D r=plot.getView();
 		long fr=plot.double2time(r.getMinX())-6*60;
 		long to=plot.double2time(r.getMaxX())+5*60;
-		
+
 		if (!hist){
 			if (to+300<System.currentTimeMillis()/1000){
 				if (!tmphist){tmphist=true;log.debug("tmphist ON");}
@@ -399,25 +413,28 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 					pnts.remove(pnts.size()-1);
 				}
 			}
-			else pnts.clear();			
+			else pnts.clear();
 		}
 		//log.debug("getHist: "+df.format(new Date(fr*1000))+","+df.format(new Date(to*1000)));
 		double step=1.0/60.0; //=1min
 		if (1000*step<r.getWidth()) step=r.getWidth()/1000;
 		for (ChannelDef def:vci.defs) {
-			vci.rcv.getHistory(getName(),def.id,fr,to,(long)(step*3600));	
+			vci.rcv.getHistory(getName(),def.id,fr,to,(long)(step*3600));
 		}
 		if (step<1.0/10.0) step=1.0/10.0;//=6min
 		plot.setXDelta(step);
 	}
+	@Override
 	public void selChanged(PlotXY plot){
 		Rectangle2D r=plot.getSelection();
 		plot.setView(r.getX(),r.getY(),r.getWidth(),r.getHeight());
 		plot.clearSelection();
 	}
+	@Override
 	public void paintDone(PlotXY plot) {
 	}
 	public PlotTime getPlot(){return plot;}
+	@Override
 	public void dispose(){
 		plot.dispose();
 		title.removeAll();
@@ -426,7 +443,7 @@ public class GraphView extends MeasView implements PlotListener,ActionListener {
 		plot=null;
 		super.dispose();
 	}
-	
+
 	public static void setAvailDefs(List<ChannelDef> defs) {
 		availDefs=defs;
 	}

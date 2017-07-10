@@ -10,8 +10,8 @@ import java.util.List;
 
 import javax.swing.JPanel;
 
+import sys.Logger;
 import channel.ChannelDef;
-import common.Logger;
 
 @SuppressWarnings("serial")
 abstract public class MeasView extends JPanel {

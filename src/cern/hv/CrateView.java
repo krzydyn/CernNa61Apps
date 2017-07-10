@@ -6,9 +6,9 @@ import java.util.Vector;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 
+import sys.Logger;
 import caen.CaenCrate;
 import caen.HVModule;
-import common.Logger;
 
 @SuppressWarnings("serial")
 public class CrateView extends JPanel {

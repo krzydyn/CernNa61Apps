@@ -26,12 +26,12 @@ import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 import javax.swing.table.DefaultTableCellRenderer;
 
+import sys.Logger;
+import sys.ui.EnchancedEditor;
+import sys.ui.UiUtils;
 import caen.HVModule;
 import caen.HVModule.ChannelSettings;
 import caen.SY527;
-import common.Logger;
-import common.ui.EnchancedEditor;
-import common.ui.UiUtils;
 
 //1496398
 @SuppressWarnings("serial")
@@ -106,6 +106,7 @@ public class ModuleView extends JPanel implements ActionListener{
 		//JTable tab=new JTable(rows,cols);
 		chnTable=new ModuleViewTable(rows,cols);
 		chnTable.addMouseListener(new MouseAdapter() {
+			@Override
 			public void mouseClicked(final MouseEvent ev){
 				if (ModuleView.this.ctrl.isLocked()) return ;
 				if ((ev.getButton()==MouseEvent.BUTTON1 && ev.getClickCount()==2)){
@@ -152,8 +153,11 @@ public class ModuleView extends JPanel implements ActionListener{
 
 		//cbxFast.addChangeListener(this);
 		this.addAncestorListener(new AncestorListener(){
+			@Override
 			public void ancestorAdded(AncestorEvent event) {}
+			@Override
 			public void ancestorMoved(AncestorEvent event) {}
+			@Override
 			public void ancestorRemoved(AncestorEvent event) {
 				setFast(false);
 			}
@@ -168,6 +172,7 @@ public class ModuleView extends JPanel implements ActionListener{
 	}
 	public boolean isFast(){return cbxFast.isSelected();}
 
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		String cmd=ev.getActionCommand();
 		if (cmd.equals("fast")){
@@ -236,6 +241,7 @@ public class ModuleView extends JPanel implements ActionListener{
 			d.height+=4;
 			getTableHeader().setPreferredSize(d);
 		}
+		@Override
 		public boolean isCellEditable(int row,int col) { return false; }
 	}
 }

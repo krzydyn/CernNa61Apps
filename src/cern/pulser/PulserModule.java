@@ -15,11 +15,11 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
+import sys.Logger;
+import sys.Resource;
+import sys.ui.UiUtils;
+import utils.ImageOps;
 import cern.pulser.Pulser.Module;
-import common.Logger;
-import common.img.ImageOps;
-import common.ui.UiUtils;
-import common.util.Resource;
 
 @SuppressWarnings("serial")
 public class PulserModule extends JPanel implements ActionListener {
@@ -29,8 +29,8 @@ public class PulserModule extends JPanel implements ActionListener {
 	private final JLabel pwrOK=new JLabel("ok");
 	private final JLabel pwrERR=new JLabel("err");
 	private final JButton[] chns=new JButton[9];
-	private PulserConnector connector;
-	private int slot;
+	private final PulserConnector connector;
+	private final int slot;
 	public PulserModule(PulserConnector c,int s) {
 		super(new GridBagLayout());
 		connector=c; slot=s;
@@ -41,22 +41,22 @@ public class PulserModule extends JPanel implements ActionListener {
 			try {
 				i=ImageIO.read(Resource.getResourceURL("res/led2.png"));
 			} catch (Exception e) {}
-			
+
 			ImageOps.makeGray(i);
 			gray=ImageOps.getScaledImageQ(i,LEDSIZE,LEDSIZE);
 			ledgray=new ImageIcon(gray);
-			
+
 			float[] mrgb={1f,2.8f,1f};
 			i=ImageOps.getScaledImage(gray,LEDSIZE,LEDSIZE,BufferedImage.TYPE_INT_ARGB);
 			ledgreen=new ImageIcon(ImageOps.imgMult(i,mrgb));
-			
+
 			mrgb[0]=2.8f;mrgb[1]=1f;
 			i=ImageOps.getScaledImage(gray,LEDSIZE,LEDSIZE,BufferedImage.TYPE_INT_ARGB);
 			ledred=new ImageIcon(ImageOps.imgMult(i,mrgb));
 		}
-		
+
 		Cursor hand=Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
-		
+
 		GridBagConstraints constr = new GridBagConstraints();
 		//constr.insets=new Insets(1,1,1,1);
 		constr.fill=GridBagConstraints.HORIZONTAL;
@@ -80,7 +80,7 @@ public class PulserModule extends JPanel implements ActionListener {
 		b.setFont(getFont().deriveFont(10f));
 		b.setPreferredSize(sz);
 		b.addActionListener(this);
-		
+
 		constr.insets=new Insets(1,1,1,1);
 		constr.fill=GridBagConstraints.NONE;
 		constr.weightx=0;
@@ -89,7 +89,7 @@ public class PulserModule extends JPanel implements ActionListener {
 		add(pwrOK,constr);
 		add(pwrERR,constr);
 		add(new JLabel(),constr);
-		
+
 		add(new JLabel("CHAN"),constr);
 		//sz=new Dimension(20,20);
 		for (int i=0; i<9; ++i){
@@ -101,6 +101,7 @@ public class PulserModule extends JPanel implements ActionListener {
 			chns[i]=b;
 		}
 	}
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		String cmd=ev.getActionCommand();
 		Module m=connector.getModule(slot);

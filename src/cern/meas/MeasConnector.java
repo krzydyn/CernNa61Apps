@@ -16,15 +16,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Vector;
 
+import com.io.IOStream;
+import com.link.TCP;
+
+import sys.Errno;
+import sys.Logger;
+import sys.StrUtil;
+import sys.SysUtil;
+import sys.Version;
 import channel.ChannelDef;
-import common.Errno;
-import common.Logger;
-import common.StrUtil;
-import common.SysUtil;
-import common.Version;
-import common.connection.Connection;
-import common.connection.TCPIPConnection;
-import common.connection.link.TCP;
 
 public class MeasConnector implements Runnable {
 	final static Logger log=Logger.getLogger();
@@ -36,14 +36,14 @@ public class MeasConnector implements Runnable {
 	public final static int CMD_MSG=4;
 	public final static int CMD_ALARMS=8;
 
-	private TCPIPConnection conn=null;
+	private IOStream conn=null;
 	private final MeasListener listener;
 	private final List<byte[]> msgq=Collections.synchronizedList(new LinkedList<byte[]>());
-	
+
 	public MeasConnector(MeasListener lst){ listener=lst; }
 	public void start(String uri){
 		if (conn!=null) stop();
-		conn=(TCPIPConnection)Connection.getConnection(uri);
+		conn=IOStream.createIOStream(uri);
 		Thread t=new Thread(this,"MeasConnector");
 		//t.setDaemon(true);
 		t.start();
@@ -53,11 +53,12 @@ public class MeasConnector implements Runnable {
 		synchronized (conn) { conn.close(); }
 		conn=null;
 	}
+	@Override
 	public void run(){
 		try{
 			StringBuilder buf=new StringBuilder();
 			conn.setChrTmo(500);
-			conn.connect();
+			conn.open();
 			SysUtil.delay(SysUtil.SECOND/2);
 			TCP link=new TCP();
 			link.setIO(conn);
@@ -178,7 +179,7 @@ public class MeasConnector implements Runnable {
 		out.close();
 		msgq.add(ba.toByteArray());
 		ba.close(); ba=null;
-		}catch (Exception e) {}		
+		}catch (Exception e) {}
 	}
 	public void serverLog(String msg) {
 		ByteArrayOutputStream ba=new ByteArrayOutputStream();

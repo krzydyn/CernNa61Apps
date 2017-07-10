@@ -19,12 +19,12 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.UIManager;
 
+import sys.Logger;
+import sys.ui.DocumentValidator;
+import sys.ui.UiUtils;
 import caen.HVModule;
 import caen.HVModule.ChannelSettings;
 import caen.SY527;
-import common.Logger;
-import common.ui.DocumentValidator;
-import common.ui.UiUtils;
 
 @SuppressWarnings("serial")
 class HVChannelUI extends JPanel implements ActionListener {
@@ -106,6 +106,7 @@ class HVChannelUI extends JPanel implements ActionListener {
 		mi.setActionCommand("par");
 		mi.addActionListener(this);
 		addMouseListener(new MouseAdapter(){
+			@Override
 			public void mouseClicked(final MouseEvent ev) {
 				if (HVChannelUI.this.ctrl.isLocked()) return ;
 				if (ev.getButton()==MouseEvent.BUTTON1 && ev.getClickCount()==2) {
@@ -120,6 +121,7 @@ class HVChannelUI extends JPanel implements ActionListener {
 	}
 	public void setChnGroup(HVChannelGroupUI g){grp=g;}
 
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		String cmd=ev.getActionCommand();
 		HVModule m=ctrl.findModule(slot);
@@ -154,7 +156,7 @@ class HVChannelUI extends JPanel implements ActionListener {
 			else
 				nm.setForeground(Color.BLACK);
 		}
-		else if ("popup".equals(cmd)) { 
+		else if ("popup".equals(cmd)) {
 			int x=0,y=0;
 			if (ev.getSource() instanceof MouseEvent)
 			{

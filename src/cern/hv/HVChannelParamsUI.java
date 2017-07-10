@@ -8,11 +8,11 @@ import javax.swing.JLabel;
 import javax.swing.JTextField;
 import javax.swing.text.AbstractDocument;
 
+import sys.StrUtil;
+import sys.ui.DialogPanel;
+import sys.ui.DocumentValidator;
 import caen.HVModule;
 import caen.HVModule.ChannelSettings;
-import common.StrUtil;
-import common.ui.DialogPanel;
-import common.ui.DocumentValidator;
 
 @SuppressWarnings("serial")
 class HVChannelParamsUI extends DialogPanel {

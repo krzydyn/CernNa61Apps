@@ -8,6 +8,7 @@ package cern.meas;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.LayoutManager;
@@ -46,23 +47,24 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
+import com.io.IOStream;
+import com.io.IOUtils;
+
 import plot.PlotTime;
 import plot.PlotXY;
 import plot.PlotXY.ChannelParams;
+import sys.Logger;
+import sys.Resource;
+import sys.Sound;
+import sys.StrUtil;
+import sys.SysUtil;
+import sys.Version;
+import sys.ui.MainPanel;
+import sys.ui.SplashScreen;
+import sys.ui.UiUtils;
 import cern.meas.MeasView.ViewChannelsInfo;
 import channel.ChannelDef;
 import channel.ui.ChannelSelector;
-import common.Logger;
-import common.StrUtil;
-import common.SysUtil;
-import common.Version;
-import common.connection.Connection;
-import common.io.IOUtils;
-import common.ui.AudioPlayerWav;
-import common.ui.MainPanel;
-import common.ui.SplashScreen;
-import common.ui.UiUtils;
-import common.util.Resource;
 
 //TODO keep range params after change of layout
 
@@ -208,7 +210,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 	final static double historyTimeRange = 24.0*30;//30 days
 
 	static final String CONFIG_NAME="measmonitor.ini";
-	
+
 	//TODO should go to ini
 	static final String[] SRCDB={
 		//"na61dcsdb.cern.ch:54331",
@@ -222,9 +224,9 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 
 	public static String forceHost=null;
 	public static boolean locked=false;
-	private String dbHost=null; 
+	private String dbHost=null;
 
-	private List<ChannelDef> chndefs = new ArrayList<ChannelDef>();
+	private final List<ChannelDef> chndefs = new ArrayList<ChannelDef>();
 	private final JLabel bigInfo;
 	private JMenu monitorMenu, pageMenu, histMenu, toolsMenu;
 	private JMenuItem conn, disconn;
@@ -240,10 +242,12 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 
 	private final Runnable connRun=new Runnable(){
 		private final ActionEvent ev=new ActionEvent(MeasMonitor.this,0,"conn");
+		@Override
 		public void run() { MeasMonitor.this.actionPerformed(ev); }
 	};
 	private final Runnable updateOKRun=new Runnable() {
 		private final ActionEvent ev=new ActionEvent(MeasMonitor.this,0,"updateOK");
+		@Override
 		public void run() { MeasMonitor.this.actionPerformed(ev); }
 	};
 
@@ -252,7 +256,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 		setOpaque(true);
 		setMinimumSize(new Dimension(800, 400));
 		setPreferredSize(new Dimension(950, 630));
-		
+
 		connector = new MeasConnector(this);
 
 		bigInfo = new JLabel("<html>Please Wait...", JLabel.CENTER);
@@ -260,13 +264,14 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 		bigInfo.setForeground(Color.GREEN);
 		//bigInfo.setOpaque(true);
 		add(bigInfo, BorderLayout.CENTER);
-		
+
 		addComponentListener(new ComponentAdapter() {
+			@Override
 			public void componentResized(ComponentEvent e) {
 				MeasMonitor.this.componentResized();
 			}
 		});
-		invokeLater(connRun);
+		EventQueue.invokeLater(connRun);
 	}
 
 	protected void componentResized() {
@@ -286,11 +291,12 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 		//repaint();
 	}
 
+	@Override
 	public JMenuBar buildMenuBar() {
 		JMenuBar mb = new JMenuBar();
 		JMenu m;
 		JMenuItem mi;
-		
+
 		mb.add(m = new JMenu("File"));
 		//m.setBorder(BorderFactory.createLineBorder(Color.GRAY,2));
 		m.add(mi = new JMenuItem("Connect"));
@@ -370,10 +376,10 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 	void setupMenus() {
 		conn.setEnabled(!isConnected);
 		disconn.setEnabled(isConnected);
-		
+
 		monitorMenu.setEnabled(pages.size()>0 && !locked);
 		pageMenu.setEnabled(pages.size()>0);
-		
+
 		histMenu.setEnabled(chndefs.size()>0 && isConnected);
 		toolsMenu.setEnabled(!locked);
 	}
@@ -406,6 +412,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 	public void setConfigChanged(){
 		cfgChanged=true;
 	}
+	@Override
 	public void exiting() {
 		isConnected = false;
 		if (connector != null) {connector.stop();connector=null;}
@@ -413,8 +420,9 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 		((Window) getTopLevelAncestor()).dispose();
 		log.debug("gui closed, exiting");
 		saveLocalConfig();
-		SysUtil.delay(1000);		
+		SysUtil.delay(1000);
 	}
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		final String cmd = ev.getActionCommand();
 		if ("quit".equals(cmd)) {
@@ -425,7 +433,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 			Version v = Version.getInstance();
 			UiUtils.messageBox(this, "About", appname + ", version " + v
 					+ "\n" + (appdescr != null ? appdescr : "") + "\nby "
-					+ author + "\n" + "Created on " + v.buildtime + 
+					+ author + "\n" + "Created on " + v.buildtime +
 					(dbHost != null ? "\nDB Host: "+dbHost:""),
 					JOptionPane.INFORMATION_MESSAGE, icon);
 		} else if ("index".equals(cmd)) {
@@ -452,7 +460,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 						if (!Version.getInstance().DEBUG && h.startsWith("localhost"))
 							continue;
 						log.debug("Testing connection to %s ...",h);
-						boolean r=Connection.testConnection(h);
+						boolean r=IOStream.tryOpen(h);
 						log.debug("connection to %s = %b",h,r);
 						if (r) {
 							log.info("conn ok %s",h);
@@ -532,7 +540,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 				cfgChanged=true;
 			}
 		} else if (cmd.startsWith("page")) {
-			
+
 			int i = pages.indexOf(curPage);
 			if (cmd.equals("pagePrev")) {
 				--i;
@@ -603,10 +611,11 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 				JOptionPane.YES_NO_OPTION);
 			if (i == JOptionPane.YES_OPTION){
 				new Thread(){
+					@Override
 					public void run(){
 						try{
 							if (Version.getDownload(UPDATEHOST))
-								invokeLater(updateOKRun);
+								EventQueue.invokeLater(updateOKRun);
 						}catch (Exception e) {log.error(e);}
 					}
 				}.start();
@@ -619,6 +628,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 		view.setChnInfo(new ViewChannelsInfo(cdef, connector, view));
 		view.getPlot().setPreferredSize(new Dimension(800, 500));
 		JFrame f = new JFrame(cdef.descr) {
+			@Override
 			public void dispose() {
 				super.dispose();
 				views.remove(view.getName());
@@ -683,7 +693,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 				GraphView gv = (GraphView) c;
 				gv.getPlot().setSelected(true);
 			}
-		}				
+		}
 	}
 	private void deselectAll(JPanel page) {
 		if (page == null) return;
@@ -693,12 +703,12 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 				GraphView gv = (GraphView) c;
 				gv.getPlot().setSelected(false);
 			}
-		}		
+		}
 	}
 	private void setCurrent(JPanel page) {
 		if (page != null) setInfo(null);
 		if (curPage == page) return;
-		
+
 		deselectAll(curPage);
 
 		if (scroll != null) {
@@ -730,7 +740,8 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 
 		scroll = new JScrollPane(curPage);
 		scroll.setWheelScrollingEnabled(true);
-		scroll.getVerticalScrollBar().setUnitIncrement(20);
+		scroll.getVerticalScrollBar().setUnitIncrement(16);
+		scroll.getHorizontalScrollBar().setUnitIncrement(8);
 		add(scroll, BorderLayout.CENTER);
 		((JFrame) getTopLevelAncestor()).setTitle(appname + " ["
 				+ curPage.getName() + "]");
@@ -740,7 +751,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 	private JPanel createPage(int cols, String name) {
 		JPanel page = new JPanel(new GridLayout(0, cols, 5, 5));
 		if (name == null) name = "Page " + (pages.size() + 1);
-		page.setName(name);		
+		page.setName(name);
 		return page;
 	}
 	private void addPage(JPanel page) {
@@ -801,7 +812,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 		if (name != null && name.length() > 0)
 			namechng = !name.equals(page.getName());
 		log.debug("pgname=%s cols=%d views=%d changed=%b",name,cols,vcl.size(),namechng);
-		
+
 		//remove current
 		for (int i = 0; i < page.getComponentCount(); ++i) {
 			JComponent c = (JComponent) page.getComponent(i);
@@ -815,11 +826,11 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 		}
 		page.removeAll();
 		page.setLayout(new GridLayout(0, cols, 5, 5));
-		
+
 		for (int i = 0; i < vcl.size(); ++i) {
 			ViewChannelsInfo vci=vcl.get(i);
-			if (vci==null || vci.defs.size()==0)	
-				{page.add(new JLabel());continue;}			
+			if (vci==null || vci.defs.size()==0)
+				{page.add(new JLabel());continue;}
 			//GraphView view = new GraphView(false);
 			GraphView view=(GraphView)vci.view;
 			page.add(view);
@@ -839,6 +850,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 	}
 
 	//called from connector thread
+	@Override
 	public void connected() {
 		connector.serverLog(log.getBuffer());
 		log.setBuffered(false);
@@ -871,7 +883,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 			//setInfo("Server Connected");
 			setInfo(null);
 			setupMenus();
-			
+
 			log.info("lastRecived %s",dfFull.format(new Date(tmLastReceived*1000)));
 			log.info("currentTime %s",dfFull.format(new Date(System.currentTimeMillis())));
 			/*if (tmLastReceived+60*60<System.currentTimeMillis()/1000) {
@@ -901,6 +913,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 	}
 
 	//called from connector thread
+	@Override
 	public void disconnected() {
 		log.setBuffered(true);
 		log.debug("disconnected, was %b",isConnected);
@@ -910,7 +923,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 		if (wasConn){ // try reconnect
 			log.info("reconecting");
 			SysUtil.delay(2*SysUtil.SECOND); // don't retry too fast
-			invokeLater(connRun);
+			EventQueue.invokeLater(connRun);
 			return;
 		}
 		dbHost=null;
@@ -921,12 +934,14 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 	}
 
 	//called from connector thread
+	@Override
 	public void exception(final Exception e) {
 		try {
 			SwingUtilities.invokeAndWait(new Runnable() {
+				@Override
 				public void run() {
 					stopSplash();
-					AudioPlayerWav.play("ding");
+					Sound.play("res/audio/ding.wav");
 					UiUtils.messageBox(MeasMonitor.this,
 							"Connection Exception", e.getClass()
 									.getSimpleName()
@@ -939,6 +954,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 	}
 
 	//called from connector thread
+	@Override
 	public void rcvdConfig(final List<ChannelDef> defs) {
 		log.debug("rcvdConfig: %d defs", defs.size());
 		chndefs.clear();
@@ -947,12 +963,13 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 		if (chndefs.size()==0)
 			setInfo("No channels availabe");
 		else connector.getAlarms();
-		
+
 		GraphView.setAvailDefs(chndefs);
 
 		setInfo("Building page views<br>Please Wait ...");
 		loadLocalConfig(false);
 		SwingUtilities.invokeLater(new Runnable(){
+			@Override
 			public void run() {
 				setInfo("Building page views<br>Done.");
 				buildPageMenu();
@@ -962,7 +979,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 				}
 				else setCurrent(null);
 				stopSplash();
-			}			
+			}
 		});
 
 /*		SwingUtilities.invokeLater(new Runnable(){
@@ -971,8 +988,9 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 			}
 		});*/
 	}
-	
+
 	//called from connector thread
+	@Override
 	public void rcvdAlarmConfig(ChannelDef def) {
 		ChannelDef pdef=getChannelDef(def.id);
 		if (pdef==null) {
@@ -989,12 +1007,13 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 				if (vci.view instanceof GraphView){
 					GraphView gv=(GraphView)vci.view;
 					gv.getPlot().setLimis(pdef.lLimits, pdef.uLimits);
-				}						
-			}			
+				}
+			}
 		}
 	}
 
 	//called from connector thread
+	@Override
 	public void rcvdData(List<PntData> v) {
 		if (v.size() == 0) return;
 		//log.debug("received data size=%d",)
@@ -1008,12 +1027,12 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 						GraphView gv=(GraphView)vci.view;
 						if(gv.tmphist) continue;
 					}
-					vci.view.addValue(pdef,pd.tm,pd.value);						
+					vci.view.addValue(pdef,pd.tm,pd.value);
 				}
 			}
-			if (tmLastReceived < pd.tm) tmLastReceived=pd.tm;	
+			if (tmLastReceived < pd.tm) tmLastReceived=pd.tm;
 		}
-		
+
 		for (int j=0; j<chnMon.size(); ++j) {
 			ViewChannelsInfo pi=chnMon.get(j);
 			if (pi.view instanceof GraphView){
@@ -1025,6 +1044,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 	}
 
 	//called from connector thread
+	@Override
 	public void rcvdData(String key, List<PntData> v) {
 		if (v.size() == 0) return;
 		MeasView view = views.get(key);
@@ -1034,24 +1054,26 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 			ChannelDef pdef=getChannelDef(pd.id);
 			if (tmLastReceived < pd.tm) tmLastReceived=pd.tm;
 			view.addValues(pdef,v);
-			
+
 		}
 		else log.error("no view for key='%s'", key);
 	}
 
 	//called from connector thread
+	@Override
 	public void rcvdMsg(final String msg) {
 		SwingUtilities.invokeLater(new Runnable() {
+			@Override
 			public void run() {
 				UiUtils.messageBox(MeasMonitor.this, "Server Message", msg,
 						JOptionPane.INFORMATION_MESSAGE);
 			}
 		});
 	}
-	
+
 	public void loadLocalConfig(boolean defaults) {
 		if (chndefs.size()==0) return;
-		
+
 		for (JPanel page:pages) {
 			for (int i = 0; i < page.getComponentCount(); ++i) {
 				JComponent c = (JComponent) page.getComponent(i);
@@ -1117,7 +1139,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 					pd=getChannelDef(id);
 					if (pd!=null) vci.defs.add(pd);
 				}
-					
+
 				String cln = row[ri++];
 				MeasView view = null;
 				if (row.length < 3) {
@@ -1164,7 +1186,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 					for (int ri=3; ri<row.length; ++ri) {
 						String[] kn=row[ri].split("=",2);
 						if (kn[0].equals("y")) y0=Double.parseDouble(kn[1]);
-						else if (kn[0].equals("h")) yrng=Double.parseDouble(kn[1]);						
+						else if (kn[0].equals("h")) yrng=Double.parseDouble(kn[1]);
 					}*/
 					view = g;
 				}
@@ -1212,7 +1234,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 				if (c instanceof MeasView) {
 					MeasView mv=(MeasView)c;
 					b.append(String.format(",%s",mv.vci.defs.get(0).name));
-					b.append(String.format(",%s",c.getClass().getSimpleName()));					
+					b.append(String.format(",%s",c.getClass().getSimpleName()));
 					if (c instanceof GraphView) {
 						Rectangle2D view=((GraphView)c).getPlot().getView();
 						b.append(String.format(Locale.US, ",w=%.2f",view.getWidth()));
@@ -1240,7 +1262,7 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 			log.debug(e);
 		}
 	}
-	
+
 	static void startSplash(){
 		if (splash!=null){
 			splash.setVisible(true);
@@ -1268,13 +1290,13 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 		log.setLevel(3);
 		log.setBuffered(true);
 		log.debug("localcfg=%s", localcfg);
-		
+
 		try {
 			icon = new ImageIcon(ImageIO.read(Resource .getResourceURL("res/meas.jpg")));
 		} catch (Exception e) {}
 		UiUtils.setupUIManagerFonts();
 		startSplash();
-		
+
 		for (int i=0; i<args.length; ++i){
 			String a=args[i];
 			int p=a.indexOf("=");
@@ -1283,6 +1305,6 @@ public class MeasMonitor extends MainPanel implements ActionListener,MeasListene
 			else if (a.startsWith("host=")) forceHost=a.substring(5);
 		}
 
-		startGUI(appname,MeasMonitor.class);		
+		startGUI(appname,MeasMonitor.class);
 	}
 }

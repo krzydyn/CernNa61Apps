@@ -3,9 +3,10 @@ package cern.lv;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import channel.ChannelData;
+import sys.StrUtil;
+import sys.SysUtil;
 import caen.CaenVME;
-import common.StrUtil;
-import common.SysUtil;
 import conn.SyncConn;
 
 /*
@@ -46,7 +47,7 @@ import conn.SyncConn;
  *
  */
 
-public class LVConnectorVmeSync extends SyncConn {
+public class LVConnectorSync extends SyncConn {
 	final static int CW_VTPC1=1;
 	final static int CW_VTPC2=2;
 	final static int CW_MTPC_HR=4;
@@ -56,12 +57,14 @@ public class LVConnectorVmeSync extends SyncConn {
 	private final ArrayList<LVChannel> chnRead=new ArrayList<LVChannel>();
 	private final ArrayList<LVChannel> chnWrite=new ArrayList<LVChannel>();
 	private LVChannel cwChannel=null;
-	
-	public LVConnectorVmeSync() {
+
+	public LVConnectorSync() {
 		super(new CaenVME());
 	}
 
+	@Override
 	public String getName(){return "LV-VME";}
+	@Override
 	public int defaultPort(){ return 31515; }
 
 	public void getErrorMsg(StringBuilder b){
@@ -71,25 +74,28 @@ public class LVConnectorVmeSync extends SyncConn {
 		}
 		if (pciErr.size()>0){
 			b.append("\n> Tip1: check if VME crates are switched ON <");
-			b.append("\n> Tip2: check if cooling system is working <");			
+			b.append("\n> Tip2: check if cooling system is working <");
 		}
 	}
 
-	public void readChn(final LVChannel c){
+	@Override
+	public void readChn(ChannelData chn){
+		LVChannel c = (LVChannel)chn;
 		chnRead.add(c);
 		if (cwChannel==null && c.sector.name.equals("CW"))
 			cwChannel=c;
 	}
-	public void writeChn(final LVChannel c){
-		chnWrite.add(c);
+	@Override
+	public void writeChn(ChannelData chn){
+		chnWrite.add((LVChannel)chn);
 	}
-	
+
 	public void updateChannels() {
 		msgq.put(new SyncConn.Command() {
 			@Override
 			protected int execute() {
 				StringBuilder b = new StringBuilder();
-				CaenVME link=(CaenVME)LVConnectorVmeSync.this.link;
+				CaenVME link=(CaenVME)LVConnectorSync.this.link;
 				for (int i=0; i<chnRead.size(); ++i) {
 					LVChannel c=chnRead.get(i);
 					int r=link.read(c.pci,c.crate,c.addr,b);
@@ -100,25 +106,26 @@ public class LVConnectorVmeSync extends SyncConn {
 					r=SysUtil.getInt(StrUtil.bytes(b),2);
 					// alarm bits 6,7 are swapped in Hardware by mistake,
 					// swap them now to fix it
-					c.alarm=(r&0xFF3F)|((r&0x0080)>>1)|((r&0x0040)<<1);					
+					c.alarm=(r&0xFF3F)|((r&0x0080)>>1)|((r&0x0040)<<1);
 				}
 				return 0;
 			}
-		});		
+		});
 		msgq.put(new SyncConn.Command() {
 			@Override
 			protected int execute() {
 				StringBuilder b = new StringBuilder();
-				CaenVME link=(CaenVME)LVConnectorVmeSync.this.link;
+				CaenVME link=(CaenVME)LVConnectorSync.this.link;
 				for (int i=0; i<chnWrite.size(); ++i) {
 					LVChannel c=chnWrite.get(i);
 					link.write(c.pci,c.crate,c.addr+2, c.setStatus, b);
 				}
 				return 0;
 			}
-		});		
+		});
 	}
 
+	@Override
 	protected void connect() throws IOException{
 		super.connect();
 		CaenVME link=(CaenVME)this.link;
@@ -137,7 +144,7 @@ public class LVConnectorVmeSync extends SyncConn {
 		int cwStatus=0;
 		for (int i=0; i<chnRead.size(); ++i){
 			if (Thread.currentThread().isInterrupted()) break;
-			LVChannel c=(LVChannel)chnRead.get(i);
+			LVChannel c=chnRead.get(i);
 			if (c.isON()){
 				String gn=c.sector.grp.getName();
 				if (gn.endsWith("-1")) cwStatus|=CW_VTPC1;
@@ -173,7 +180,7 @@ public class LVConnectorVmeSync extends SyncConn {
 		log.info("Write channels %d",chnWrite.size());
 		for (int i=0; i<chnWrite.size(); ++i){
 			if (Thread.currentThread().isInterrupted()) break;
-			LVChannel c=(LVChannel)chnWrite.get(i);
+			LVChannel c=chnWrite.get(i);
 			if (pciErr.contains(c.pci)){
 				chnWrite.remove(i); --i;
 				continue;
@@ -198,7 +205,7 @@ public class LVConnectorVmeSync extends SyncConn {
 		log.info("Read channels %d",chnRead.size());
 		for (int i=0; i<chnRead.size(); ++i){
 			if (Thread.currentThread().isInterrupted()) break;
-			LVChannel c=(LVChannel)chnRead.get(i);
+			LVChannel c=chnRead.get(i);
 			if (pciErr.contains(c.pci)) {
 				c.status=c.alarm=0;
 				continue;

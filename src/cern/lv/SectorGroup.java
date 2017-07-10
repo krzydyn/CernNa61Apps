@@ -2,7 +2,8 @@ package cern.lv;
 
 import java.util.ArrayList;
 
-import common.Logger;
+import sys.Logger;
+
 
 public class SectorGroup {
 	static Logger log=Logger.getLogger();

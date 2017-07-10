@@ -18,12 +18,12 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 
+import sys.Logger;
+import sys.ui.DocumentValidator;
+import sys.ui.UiUtils;
 import caen.HVModule;
 import caen.HVModule.ChannelSettings;
 import caen.SY527;
-import common.Logger;
-import common.ui.DocumentValidator;
-import common.ui.UiUtils;
 
 @SuppressWarnings("serial")
 class HVChannelGroupUI extends JPanel implements ActionListener{
@@ -40,6 +40,7 @@ class HVChannelGroupUI extends JPanel implements ActionListener{
 		this.vgap=vgap;
 	}
 	public boolean isLocked(){return !set.isEnabled();}
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		if (ctrl==null) return ;
 		String cmd=ev.getActionCommand();
@@ -124,6 +125,7 @@ class HVChannelGroupUI extends JPanel implements ActionListener{
 			super.putValue(ACTION_COMMAND_KEY, cmd);
 			super.putValue(NAME, nm);
 		}
+		@Override
 		public void actionPerformed(ActionEvent e) {
 			if (grp.size()==0 || ctrl.isLocked()) return ;
 			String cmd=e.getActionCommand();

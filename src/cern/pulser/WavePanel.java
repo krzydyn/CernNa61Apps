@@ -30,16 +30,19 @@ import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.filechooser.FileFilter;
 
+import algebra.Lines;
+import algebra.SqrFitt;
+
+import com.io.IOUtils;
+
 import plot.PlotXY;
 import plot.PlotXY.PlotListener;
+import sys.Const;
+import sys.Logger;
+import sys.ui.DocumentValidator;
+import sys.ui.UiUtils;
 import cern.pulser.Pulser.Waveform;
-import common.Logger;
-import common.algebra.Const;
-import common.algebra.Geom2D;
-import common.algebra.SqrFitt;
-import common.io.IOUtils;
-import common.ui.DocumentValidator;
-import common.ui.UiUtils;
+
 
 @SuppressWarnings("serial")
 public class WavePanel extends JPanel implements ActionListener, PlotListener {
@@ -47,14 +50,14 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 	final private JFileChooser chooser = new JFileChooser();
 
 	private final JButton[] wavesel=new JButton[4];
-	private final JButton[] waverd=new JButton[4]; 
-	private JTextField curPos=new JTextField(4);
-	private JTextField curVal=new JTextField(4);
+	private final JButton[] waverd=new JButton[4];
+	private final JTextField curPos=new JTextField(4);
+	private final JTextField curVal=new JTextField(4);
 	private final PlotXY plot=new PlotXY();
 	private int curWaveRead=-1;
 
 	final private PulserConnector connector;
-	
+
 	public WavePanel(PulserConnector c) {
 		super(new GridBagLayout());
 		connector=c;
@@ -72,7 +75,7 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 			b.addActionListener(this);
 			b.setActionCommand(String.format("s%d",i));
 			wavesel[i]=b;
-		}		
+		}
 		constr.fill=GridBagConstraints.BOTH;
 		constr.weightx=1;
 		constr.gridwidth=4;
@@ -83,7 +86,7 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 		add(new JLabel("x:"),constr);
 		constr.gridwidth=GridBagConstraints.REMAINDER;
 		add(curPos,constr);
-		
+
 		constr.weightx=0;
 		constr.fill=GridBagConstraints.NONE;
 		constr.gridwidth=1;
@@ -104,7 +107,7 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 		b.setPreferredSize(sz);
 		add(b=new JButton("Upload..."),constr);
 		b.addActionListener(this);
-		b.setActionCommand("upload");			
+		b.setActionCommand("upload");
 		(sz=b.getPreferredSize()).height=18;
 		b.setPreferredSize(sz);
 		constr.fill=GridBagConstraints.BOTH;
@@ -115,17 +118,18 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 		add(new JLabel("y:"),constr);
 		constr.gridwidth=GridBagConstraints.REMAINDER;
 		add(curVal,constr);
-		
+
 		constr.fill=GridBagConstraints.BOTH;
 		constr.weightx=1;constr.weighty=1;
 		add(plot,constr);
 		setFocusable(true);
 		addKeyListener(new KeyAdapter(){
+			@Override
 			public void keyPressed(KeyEvent ev){
 				plot.keyPressed(ev);
 			}
 		});
-		
+
 		plot.setAutoBounds(PlotXY.AUTOBOUNDS_NONE,PlotXY.AUTOBOUNDS_SCALE);
 		plot.setUnit("time","Volts");
 		plot.setPlotListener(this);
@@ -144,7 +148,8 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 		curPos.setHorizontalAlignment(JTextField.RIGHT);
 		curVal.setHorizontalAlignment(JTextField.RIGHT);
 		curVal.addActionListener(new ActionListener(){
-            public void actionPerformed(ActionEvent ev){
+            @Override
+			public void actionPerformed(ActionEvent ev){
             	Rectangle2D sel=plot.getSelection();
             	if (sel.getWidth()<Const.eps) return ;
             	List<Point2D> pnts=plot.getPoints(0);
@@ -158,12 +163,14 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
             	if (y>plot.getView().getMaxY()) plot.autoFitY2();
             	plot.repaint(100);
             }});
-		
+
 		chooser.setCurrentDirectory(new File("."));
 		chooser.setFileFilter(new FileFilter(){
+			@Override
 			public boolean accept(File f) {
 				return f.isDirectory()||f.getName().endsWith(".csv");
 			}
+			@Override
 			public String getDescription() {
 				return "CSV files";
 			}
@@ -176,12 +183,13 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 		}
 		chooser.setCurrentDirectory(f);
 	}
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		String cmd=ev.getActionCommand();
 		if (cmd.matches("s[0-9]+")) {
 			int nr=Integer.parseInt(cmd.substring(1));
 			connector.writeWaveformNr(nr);
-			connector.readWaveformNr();			
+			connector.readWaveformNr();
 		} else if (cmd.matches("w[0-9]+")) {
 			int nr=Integer.parseInt(cmd.substring(1));
 			connector.readWaveform(nr);
@@ -202,13 +210,13 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 			}catch (Exception e) {
 				log.error(e.toString());
 			}
-				
+
 		} else if ("upload".equals(cmd)) {
 			if (curWaveRead<0) return ;
 			File f=new File(String.format("wave-%d.csv",curWaveRead+1));
 			chooser.setSelectedFile(f);
 			int r=chooser.showOpenDialog(getParent());
-			if (r!=JFileChooser.APPROVE_OPTION) return ;			
+			if (r!=JFileChooser.APPROVE_OPTION) return ;
 			f=chooser.getSelectedFile();
 			BufferedReader in=null;
 			Waveform w=connector.getWaveform();
@@ -233,7 +241,7 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 			}catch (Exception e) {
 				log.error(e.toString());
 			} finally{
-				if (in!=null) IOUtils.close(in);	
+				IOUtils.close(in);
 			}
 		} else if ("smooth".equals(cmd)) {
         	Rectangle2D sel=plot.getSelection();
@@ -247,12 +255,12 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
         	for (; i<pnts.size(); i+=10){
         		Point2D p=pnts.get(i);
         		if (p.getX()>=sel.getMaxX()) {ie=i;break;}
-        		
+
         	}
         	if (is==0) is=1;
         	if (ie>pnts.size()-2) ie=pnts.size()-2;
         	if (is>=ie) return ;
-        	
+
         	int mode=2;
         	double ys=pnts.get(is).getY(), ye=pnts.get(ie).getY();
         	if (mode==0){//b-spline P(t)=(t^2-2t+1)*P0+(2t-2t^2)*P1+t^2*P2, t=(0..1)
@@ -301,11 +309,11 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
         		//2.find control points
     			l1.setLine(pnts.get(is-1),pnts.get(is));
         		l2.setLine(pnts.get(e),pnts.get(e+1));
-        		pc1=Geom2D.intersection(l1, l2, true);
+        		pc1=Lines.intersection(l1, l2, true);
         		l1.setLine(pnts.get(ie),pnts.get(ie+1));
-        		pc2=Geom2D.intersection(l1, l2, true);
+        		pc2=Lines.intersection(l1, l2, true);
         		if (pc1==null || pc2==null) return ;
-        		
+
         		ys=pnts.get(is).getY();
         		//3.draw spline (part 1)
         		for (i=is; i<e; ++i){
@@ -328,7 +336,7 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
         			p.setLocation(p.getX(),y);
         		}
         	}
-        	plot.repaint(100);			
+        	plot.repaint(100);
 		} else if ("move".equals(cmd)) {
 			int mv=0;
 			for(String in="";;){
@@ -360,7 +368,7 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 				for (int i=0; i<mv; ++i){
 					p2=pnts.get(i);
 					p2.setLocation(p2.getX(),0);
-				}				
+				}
 			}
 			plot.repaint(100);
 		}
@@ -385,19 +393,23 @@ public class WavePanel extends JPanel implements ActionListener, PlotListener {
 		plot.clear();
 		if (w!=null){
 			plot.setView(0,0,w.data.length,100);
-			plot.addPoints(0,0f,1f,w.data,w.data.length);						
+			plot.addPoints(0,0f,1f,w.data,w.data.length);
 		} else plot.setView(0,0,0,0);
 	}
-	
+
+	@Override
 	public void caretChanged(PlotXY plot) {
 		Point2D c=plot.getCaret();
 		curPos.setText(String.format("%d",Math.round(c.getX())));
 		curVal.setText(String.format("%d",Math.round(c.getY())));
 	}
+	@Override
 	public void paintDone(PlotXY plot) {
 	}
+	@Override
 	public void selChanged(PlotXY plot) {
 	}
+	@Override
 	public void viewChanged(PlotXY plot, Rectangle2D oldview, int opt) {
 	}
 }

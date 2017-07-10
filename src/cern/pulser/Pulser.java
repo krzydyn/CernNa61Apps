@@ -4,13 +4,14 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import common.Errno;
-import common.Logger;
-import common.StrUtil;
-import common.connection.link.DataLink;
-import common.io.ByteInputStream;
-import common.io.ByteOutputStream;
-import common.io.IOUtils;
+import com.io.ByteInputStream;
+import com.io.ByteOutputStream;
+import com.io.IOUtils;
+import com.link.DataLink;
+
+import sys.Errno;
+import sys.Logger;
+import sys.StrUtil;
 
 public class Pulser {
 	static protected Logger log=Logger.getLogger();
@@ -79,11 +80,11 @@ public class Pulser {
 		if (is.available()<l) return -Errno.EIO;
 		int r=0;
 		for (int i=0; i<l; ++i){ r<<=8; r|=is.read()&0xff; }
-		return r;	
+		return r;
 	}
-	
+
 	public void setLink(DataLink l){link=l;}
-	
+
 	public Firmware getFirmware(){return firmware;}
 	public Voltage getVoltage(){return voltage;}
 	public int getModuleMask(){return modmask;}
@@ -95,7 +96,7 @@ public class Pulser {
 	public int getWaveformNr(){return wavenr;}
 	public Waveform getWaveform(){return wave;}
 	public int getClockMask(){return clkmask;}
-	
+
 	public int readFirmware(StringBuilder b) {
 		b.setLength(0);
 		int r=command(CMD_FIRMVARE,b);
@@ -224,7 +225,7 @@ public class Pulser {
 	 * read stored waveform data from location nr
 	 * @param b operation buffer, returned data
 	 * @param nr waveform number (0-3)
-	 * @return 
+	 * @return
 	 */
 	public int readWaveform(StringBuilder b,int nr){
 		if (nr<0||nr>5) return 0;
@@ -250,14 +251,14 @@ public class Pulser {
 	 * write waveform data into location nr
 	 * @param b operation buffer, returned data
 	 * @param nr waveform number (0-3)
-	 * @return 
+	 * @return
 	 */
 	public int writeWaveform(StringBuilder b,int nr){
 		b.setLength(0);
 		DataOutputStream bo=new DataOutputStream(new ByteOutputStream(b));
 		try{
 			bo.writeShort(1); //length
-			bo.write(nr&0xff); 
+			bo.write(nr&0xff);
 			bo.writeShort(wave.data.length*4);
 			for (int i=0; i<wave.data.length; ++i){
 				int v=Math.round(wave.data[i]);
@@ -275,7 +276,7 @@ public class Pulser {
 	 * reset module power status
 	 * @param b operation buffer
 	 * @param slot module slot nr (0-6)
-	 * @return 
+	 * @return
 	 */
 	public int resetModulePower(StringBuilder b,int slot){
 		b.setLength(0);
@@ -289,7 +290,7 @@ public class Pulser {
 	 * reset module full status
 	 * @param b operation buffer
 	 * @param slot module slot nr (0-6)
-	 * @return 
+	 * @return
 	 */
 	public int resetModuleFull(StringBuilder b,int slot){
 		b.setLength(0);
@@ -307,7 +308,7 @@ public class Pulser {
 			DataInputStream dis=new DataInputStream(new ByteInputStream(b));
 			clkmask=readInt(dis);
 		}catch (Exception e) {log.error(e);}
-		return b.length();		
+		return b.length();
 	}
 	public int writeClockMask(StringBuilder b, int m) {
 		int cm=(clkmask^m)&0x3;

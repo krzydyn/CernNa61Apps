@@ -8,7 +8,7 @@ import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-import common.ui.DialogPanel;
+import sys.ui.DialogPanel;
 
 @SuppressWarnings("serial")
 public class LVChannelUI extends DialogPanel {
@@ -100,6 +100,7 @@ public class LVChannelUI extends DialogPanel {
 			if (i>3) l.setBackground(on?SectorUI.COLOR_NOALARM:SectorUI.COLOR_ALARM);
 		}
 	}
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		String cmd=ev.getActionCommand();
 		if (cmd.equals("updChn")) updateChnUI();

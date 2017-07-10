@@ -3,6 +3,7 @@ package cern.lv;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -14,7 +15,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.border.Border;
 
-import common.Logger;
+import sys.Logger;
+
 @SuppressWarnings("serial")
 public class LVTPCView extends JPanel {
 	static Logger log=Logger.getLogger();
@@ -32,6 +34,9 @@ public class LVTPCView extends JPanel {
 	private final SectorGroupUI mTPCLh=new SectorGroupUI(4,1,1);
 	private final SectorGroupUI mTPCRh=new SectorGroupUI(4|(2<<8),1,1);
 	private final SectorGroupUI mTPCRs=new SectorGroupUI(4|(2<<8),1,1);
+	private final SectorGroupUI fTPC1=new SectorGroupUI(-1,1,1);
+	private final SectorGroupUI fTPC2=new SectorGroupUI(-1,1,1);
+	private final SectorGroupUI fTPC3=new SectorGroupUI(-1,1,1);
 
 	public LVTPCView(LVControlInterface ctrl) {
 		super(null);
@@ -45,6 +50,9 @@ public class LVTPCView extends JPanel {
 		mTPCLh.create(ctrl,ctrl.getBindings("mtpcLh"),5);
 		mTPCRh.create(ctrl,ctrl.getBindings("mtpcRh"),5);
 		mTPCRs.create(ctrl,ctrl.getBindings("mtpcRs"),5);
+		fTPC1.create(ctrl,ctrl.getBindings("ftpc1"),1);
+		fTPC2.create(ctrl,ctrl.getBindings("ftpc2"),1);
+		fTPC3.create(ctrl,ctrl.getBindings("ftpc3"),1);
 		buildLa2();
 	}
 	void buildLa2() {
@@ -56,64 +64,70 @@ public class LVTPCView extends JPanel {
 		constr.insets=insets5;
 		constr.fill=GridBagConstraints.NONE;
 		constr.anchor=GridBagConstraints.CENTER;
-
 		constr.weightx=constr.weighty=1;
-		constr.gridwidth=4;constr.gridheight=1;
-		constr.gridx=0;constr.gridy=0;
+
+		constr.insets = new Insets(0, 0, 0, 0);
+		constr.gridwidth=1;constr.gridheight=1;
+		for (int i=0; i < 7; ++i) {
+			constr.gridx=i;constr.gridy=4;
+			add(new JLabel(),constr);
+		}
+
+		constr.insets=insets5;
+		//Status Info
+		constr.gridwidth=3;constr.gridheight=1;
+		constr.gridx=1;constr.gridy=0;
 		add(l=createStatusInfoBox(),constr);
 		l.setBorder(infoborder);
 
-		//LMPD,VTPC1,GAP,VTPC2
-		constr.weightx=0.5; constr.weighty=0.1;
+		int gx=0;
+		//LMPD,VTPC1,GAP,VTPC2,FTPC1
 		constr.gridwidth=1;constr.gridheight=2;
-		constr.gridx=0;constr.gridy=1;
+		constr.gridx=gx++;constr.gridy=1;
 		add(lmPD,constr);
-		constr.gridx=1;constr.gridy=1;
+		constr.gridx=gx++;constr.gridy=1;
 		add(vTPC1,constr);vTPC1.setBorder(b);
-		constr.gridx=2;constr.gridy=1;
+		constr.gridx=gx++;constr.gridy=1;
 		add(gTPC,constr);
-		constr.gridx=3;constr.gridy=1;
+		constr.gridx=gx++;constr.gridy=1;
 		add(vTPC2,constr);vTPC2.setBorder(b);
-
-		//this makes Layout symmetric
-		constr.gridwidth=1;constr.gridheight=1;
-		constr.gridx=4;constr.gridy=1;
-		add(new JLabel(),constr);
-		constr.gridx=4;constr.gridy=2;
-		add(new JLabel(),constr);
-
-		constr.gridwidth=1;constr.gridheight=1;
-		constr.gridx=0;constr.gridy=3;
-		constr.anchor=GridBagConstraints.EAST;
-		add(cwb,constr);
-		constr.anchor=GridBagConstraints.CENTER;
-		constr.weightx=constr.weighty=1;
-		constr.gridwidth=4;
-		constr.gridx=0;constr.gridy=3;
-		add(l=createAlarmInfoBox(),constr);
-		l.setBorder(infoborder);
-		constr.gridwidth=1;
-		constr.gridx=3;constr.gridy=3;
-		constr.insets=new Insets(5,70,5,5);
-		add(tpcCB,constr);
+		constr.gridx=gx++;constr.gridy=1;
+		add(fTPC1,constr);
 
 		JPanel mtpc;
-		constr.insets=insets5;
-		constr.anchor=GridBagConstraints.SOUTH;
+		//CW,CB board and AlarmInfo
+		mtpc=new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 2));
+		mtpc.add(cwb);
+		mtpc.add(l=createAlarmInfoBox());
+		l.setBorder(infoborder);
+		mtpc.add(tpcCB);
+		constr.gridwidth=5;constr.gridheight=1;
+		constr.gridx=0;constr.gridy=3;
+		add(mtpc,constr);
+
 		constr.gridwidth=1;constr.gridheight=2;
-		constr.gridx=4;constr.gridy=0;
+		constr.gridx=gx;constr.gridy=0;
 		//MTPC-L
 		mtpc=new JPanel(new BorderLayout(2,2));
 		mtpc.add(mTPCLs,BorderLayout.CENTER);
 		mtpc.add(mTPCLh,BorderLayout.SOUTH);
 		add(mtpc,constr);
 		//MTPC-R
-		constr.anchor=GridBagConstraints.NORTH;
-		constr.gridx=4;constr.gridy=2;
+		constr.gridx=gx;constr.gridy=2;
 		mtpc=new JPanel(new BorderLayout(2,2));
 		mtpc.add(mTPCRh,BorderLayout.NORTH);
 		mtpc.add(mTPCRs,BorderLayout.CENTER);
 		add(mtpc,constr);
+		++gx;
+
+		//FTPC2,FTPC3
+		constr.gridwidth=1;constr.gridheight=1;
+		constr.anchor=GridBagConstraints.SOUTH;
+		constr.gridx=gx;constr.gridy=1;
+		add(fTPC2,constr);
+		constr.anchor=GridBagConstraints.NORTH;
+		constr.gridx=gx;constr.gridy=2;
+		add(fTPC3,constr);
 	}
 	JPanel createStatusInfoBox(){
 		Dimension bs=new Dimension(14,14);

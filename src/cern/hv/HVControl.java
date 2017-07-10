@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Insets;
 import java.awt.Window;
@@ -30,19 +31,20 @@ import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
+import com.io.IOStream;
+import com.link.AbstractLink.LinkStateListener;
+
+import sys.Logger;
+import sys.Resource;
+import sys.Sound;
+import sys.SysUtil;
+import sys.Version;
+import sys.ui.UiUtils;
+import utils.IntToken;
 import caen.CaenNet;
 import caen.HVModule;
 import caen.HVModule.ChannelSettings;
 import caen.SY527;
-import common.Logger;
-import common.SysUtil;
-import common.Version;
-import common.connection.Connection;
-import common.connection.link.AbstractLink.LinkStateListener;
-import common.crypt.Encryptor;
-import common.ui.AudioPlayerWav;
-import common.ui.UiUtils;
-import common.util.Resource;
 
 @SuppressWarnings("serial")
 public class HVControl extends JPanel implements ActionListener, LinkStateListener {
@@ -50,7 +52,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 	final static Logger log = Logger.getLogger();
 	final static String appname = "HV Control";
 	final static String appdescr = "High Voltage Control";
-	final static String author = "Krzysztof.Dynowski@cern.ch";
+	final static String author = "krzydyn@gmail.com<br>Krzysztof.Dynowski@cern.ch";
 	//final static String defaultAddr="na61dcs1.cern.ch:31514";
 	final static String defaultAddr="localhost:31514";
 
@@ -95,7 +97,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		try{icon=new ImageIcon(Resource.getResourceURL("res/hvna61.jpg"));}
 		catch (Exception e) {}
 		p.add(Box.createHorizontalStrut(4));
-		p.add(l=new JLabel("<html>"+appdescr+"<br><font size=2 color=#CC6600>by "+author,icon,JLabel.LEFT));
+		p.add(l=new JLabel("<html>"+appdescr+"<br><font size=2 color=#CC6600>"+author,icon,JLabel.LEFT));
 		l.setFont(fontTitle);
 		p.add(Box.createHorizontalStrut(10));
 		p.add(Box.createHorizontalGlue());{
@@ -185,12 +187,13 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 			JOptionPane.ERROR_MESSAGE);
 	}
 	public boolean showConfim(String msg) {
-		String code=String.valueOf(Encryptor.genToken(4));
+		String code=String.valueOf(IntToken.generate(4));
 		String in=JOptionPane.showInputDialog(this,
 				msg+"\nEnter confirmation token:  "+code,"Warning",JOptionPane.WARNING_MESSAGE);
 		return code.equals(in);
 	}
 
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		final String cmd = ev.getActionCommand();
 		log.info("Action: %s",cmd);
@@ -211,7 +214,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		} else if ("conn".equals(cmd)) {
 			try{connectSY527();}
 			catch (Exception e) {
-				AudioPlayerWav.play("ding");
+				Sound.play("res/audio/ding.wav");
 				UiUtils.messageBox(this,"Error","Can't connect SY527\n\n"+e.getMessage(),JOptionPane.ERROR_MESSAGE);
 				conn.setEnabled(true);
 			}
@@ -300,9 +303,9 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		for (int i = 0; i < chnlners.size(); ++i)
 			chnlners.get(i).actionPerformed(updChn);
 
-		Connection c = Connection.getConnection(addr);
+		IOStream c = IOStream.createIOStream(addr);
 		try{
-			c.connect();
+			c.open();
 			StringBuilder b = new StringBuilder();
 			synchronized(sy527) {
 				caen.setIO(c);
@@ -324,10 +327,10 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 						break;
 					}
 				}
-				caen.close();
 			}
 		}finally {
-			c.disconnect();
+			caen.close();
+			c.close();
 		}
 		if (sy527.getAddress() <= 0){
 			disconnected();
@@ -336,6 +339,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		log.info("Connected %s, address: %d",sy527.getName(),sy527.getAddress());
 		connected();
 		new Thread(new Runnable() {
+			@Override
 			public void run(){
 				workloop=Thread.currentThread();
 				try{ readLoop(); } finally {
@@ -371,6 +375,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 
 	public void connected(){
 		SwingUtilities.invokeLater(new Runnable(){
+			@Override
 			public void run(){
 				dconn.setEnabled(true);
 			}
@@ -378,6 +383,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 	}
 	public void disconnected(){
 		SwingUtilities.invokeLater(new Runnable(){
+			@Override
 			public void run(){
 				conn.setEnabled(true);
 				dconn.setEnabled(false);
@@ -387,12 +393,12 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 
 	private void readConfig() {
 		if (sy527.getAddress() <= 0) return;
-		Connection c = Connection.getConnection(addr);
+		IOStream c = IOStream.createIOStream(addr);
 		try{
-			c.connect();
+			caen.setIO(c);
+			c.open();
 			StringBuilder buf=new StringBuilder();
 			synchronized(sy527) {
-				caen.setIO(c);
 				caen.open();
 				for (int i = 0; i < sy527.getModulesCount(); ++i) {
 					HVModule m = (HVModule)sy527.getModule(i);
@@ -402,15 +408,16 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 					}
 					if (Thread.currentThread().isInterrupted()) break;
 				}
-				caen.close();
 			}
 		}catch (Exception e) {
 			log.error(e);
 		}finally {
-			c.disconnect();
+			caen.close();
+			c.close();
 		}
 		//inform listeners about update (run in EDT)
 		SwingUtilities.invokeLater(new Runnable(){
+			@Override
 			public void run() {
 				for (int i = 0; i < chnlners.size(); ++i)
 					chnlners.get(i).actionPerformed(updCfg);
@@ -421,9 +428,9 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 	private void killChannels() {
 		if (workloop!=null) {workloop.interrupt();SysUtil.delay(100);}
 		if (sy527.getAddress() <= 0) return;
-		Connection c = Connection.getConnection(addr);
+		IOStream c = IOStream.createIOStream(addr);
 		try{
-			c.connect();
+			c.open();
 			synchronized(sy527) {
 				caen.setIO(c);
 				caen.open();
@@ -433,7 +440,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		}catch (Exception e) {
 			log.error(e);
 		}finally {
-			c.disconnect();
+			c.close();
 		}
 		log.info("Killed channels");
 	}
@@ -451,7 +458,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 					else tripped.add(c);
 				}
 				else {
-					if (!tripped.contains(c)) c=null; 
+					if (!tripped.contains(c)) c=null;
 					else tripped.remove(c);
 				}
 				if (c!=null){
@@ -468,16 +475,16 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		}
 		if (tripped.size()>0) {
 			UiUtils.messageBox(HVControl.this,"Error","Hardware communication problem\n\n"+buf.toString(),JOptionPane.ERROR_MESSAGE);
-			AudioPlayerWav.play("alarm");
+			Sound.play("alarm");
 		}
 	}
 
 	public void readChannels(HVModule m) {
 		if (sy527.getAddress() <= 0) return;
 		if (sy527.getModulesCount() <= 0) return;
-		Connection c = Connection.getConnection(addr);
+		IOStream c = IOStream.createIOStream(addr);
 		try{
-			c.connect();
+			c.open();
 			StringBuilder buf=new StringBuilder();
 			synchronized(sy527) {
 				caen.setIO(c);
@@ -493,9 +500,10 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		} catch (Exception e) {
 			log.error(e);
 		} finally {
-			c.disconnect();
+			c.close();
 		}
 		SwingUtilities.invokeLater(new Runnable(){
+			@Override
 			public void run() {
 				for (int i = 0; i < chnlners.size(); ++i)
 					chnlners.get(i).actionPerformed(updChn);
@@ -505,9 +513,9 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 	public void readChannels() {
 		if (sy527.getAddress() <= 0) return;
 		if (sy527.getModulesCount() <= 0) return;
-		Connection c = Connection.getConnection(addr);
+		IOStream c = IOStream.createIOStream(addr);
 		try{
-			c.connect();
+			c.open();
 			StringBuilder buf=new StringBuilder();
 			synchronized(sy527) {
 			caen.setIO(c);
@@ -526,10 +534,11 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		} catch (Exception e) {
 			log.error(e);
 		} finally {
-			c.disconnect();
+			c.close();
 		}
 		//inform listeners about update (run in EDT)
 		SwingUtilities.invokeLater(new Runnable(){
+			@Override
 			public void run() {
 				for (int i = 0; i < chnlners.size(); ++i)
 					chnlners.get(i).actionPerformed(updChn);
@@ -544,9 +553,9 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		if (sy527.getModulesCount() <= 0) return;
 		HVModule m = sy527.findHVModule(slot);
 		if (m == null) return;
-		Connection c = Connection.getConnection(addr);
+		IOStream c = IOStream.createIOStream(addr);
 		try {
-			c.connect();
+			c.open();
 			synchronized(sy527) {
 				caen.setIO(c);
 				caen.open();
@@ -559,7 +568,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		} catch (Exception e) {
 			log.error(e);
 		} finally {
-			c.disconnect();
+			c.close();
 		}
 		log.info("Action: set channel %d.%d param %d=%d",slot,chn,par,v);
 		for (int i = 0; i < chnlners.size(); ++i)
@@ -573,9 +582,9 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		if (sy527.getModulesCount() <= 0) return;
 		HVModule m = sy527.findHVModule(slot);
 		if (m == null) return;
-		Connection c = Connection.getConnection(addr);
+		IOStream c = IOStream.createIOStream(addr);
 		try {
-			c.connect();
+			c.open();
 			synchronized(sy527) {
 				caen.setIO(c);
 				caen.open();
@@ -603,21 +612,21 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		} catch (Exception e) {
 			log.error(e);
 		} finally {
-			c.disconnect();
+			c.close();
 		}
 		log.info("Action: set channel %d.%d settings %s",slot,chn,cs.toString());
 		for (int i = 0; i < chnlners.size(); ++i)
 			chnlners.get(i).actionPerformed(updChn);
 	}
-	
+
 	public void rampGrpBy(HVChannelGroup grp, int v) {
 		if (locked) { showLocked(); return; }
 		if (v==0 || grp.size() == 0) return;
 		if (sy527.getAddress() <= 0) return;
 		if (sy527.getModulesCount() <= 0) return;
-		Connection c = Connection.getConnection(addr);
+		IOStream c = IOStream.createIOStream(addr);
 		try {
-			c.connect();
+			c.open();
 			synchronized(sy527) {
 			caen.setIO(c);
 			caen.open();
@@ -640,7 +649,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		} catch (Exception e) {
 			log.error(e);
 		} finally {
-			c.disconnect();
+			c.close();
 		}
 		log.info("Action: ramp group %S by %d",grp.getName(),v);
 		for (int i = 0; i < chnlners.size(); ++i)
@@ -652,9 +661,9 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		if (grp.size() == 0) return;
 		if (sy527.getAddress() <= 0) return;
 		if (sy527.getModulesCount() <= 0) return;
-		Connection c = Connection.getConnection(addr);
+		IOStream c = IOStream.createIOStream(addr);
 		try {
-			c.connect();
+			c.open();
 			synchronized(sy527) {
 				caen.setIO(c);
 				caen.open();
@@ -676,7 +685,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		} catch (Exception e) {
 			log.error(e);
 		} finally {
-			c.disconnect();
+			c.close();
 		}
 		log.info("Action: set group %s param %d=%d",grp.getName(),par,v);
 		for (int i = 0; i < chnlners.size(); ++i)
@@ -688,10 +697,10 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		if (grp.size() == 0) return;
 		if (sy527.getAddress() <= 0) return;
 		if (sy527.getModulesCount() <= 0) return;
-		Connection c = Connection.getConnection(addr);
+		IOStream c = IOStream.createIOStream(addr);
 		StringBuilder info=new StringBuilder();
 		try {
-			c.connect();
+			c.open();
 			synchronized(sy527) {
 				caen.setIO(c);
 				caen.open();
@@ -740,7 +749,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		} catch (Exception e) {
 			log.error(e);
 		} finally {
-			c.disconnect();
+			c.close();
 		}
 		log.info("Action: set group %s settings\n%s",grp.getName(),info.toString());
 		for (int i = 0; i < chnlners.size(); ++i)
@@ -748,11 +757,16 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 	}
 
 	@Override
-	public void stateChanged(int state) {
-		if ((state & CaenNet.STATE_RECV) != 0) rx.setBackground(Color.GREEN);
-		else rx.setBackground(getBackground());
-		if ((state & CaenNet.STATE_SEND) != 0) tx.setBackground(Color.GREEN);
-		else tx.setBackground(getBackground());		
+	public void stateChanged(final int state) {
+		EventQueue.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				if ((state & CaenNet.STATE_RECV) != 0) rx.setBackground(Color.GREEN);
+				else rx.setBackground(getBackground());
+				if ((state & CaenNet.STATE_SEND) != 0) tx.setBackground(Color.GREEN);
+				else tx.setBackground(getBackground());
+			}
+		});
 	}
 
 	public void fastRead(HVModule m){
@@ -781,6 +795,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 						final ModuleView v=((CrateView)c).getModuleView(fastReadMod);
 						if (v!=null)
 						SwingUtilities.invokeLater(new Runnable(){
+							@Override
 							public void run() { v.setFast(false); }
 						});
 						else log.error("not found slot[%d] %s",fastReadMod.getSlot(),fastReadMod.getName());
@@ -801,7 +816,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 				if (readCfg<tm) {
 					readConfig();
 					readCfg=tm+60;
-				}				
+				}
 			}
 			if (Thread.currentThread().isInterrupted()) break;
 			SysUtil.delay(1000);
@@ -858,7 +873,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		if (!ret) log.error("Can't load 'hvchannels.conf'");
 		return ret;
 	}
-	
+
 	public static void main(String[] args) {
 		try {
 			//UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
@@ -877,6 +892,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		f.setJMenuBar(panel.buildMenuBar());
 		f.setContentPane(panel);
 		f.addWindowListener(new WindowAdapter() {
+			@Override
 			public void windowClosing(WindowEvent e) {
 				panel.actionPerformed(new ActionEvent(e.getSource(),e.getID(),"quit"));
 			}
@@ -891,6 +907,7 @@ public class HVControl extends JPanel implements ActionListener, LinkStateListen
 		f.setVisible(true);
 
 		SwingUtilities.invokeLater(new Runnable() {
+			@Override
 			public void run() {
 				panel.actionPerformed(new ActionEvent(panel,0,"conn"));
 			}

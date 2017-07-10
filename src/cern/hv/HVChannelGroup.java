@@ -2,7 +2,7 @@ package cern.hv;
 
 import java.util.ArrayList;
 
-import common.Logger;
+import sys.Logger;
 
 public class HVChannelGroup {
 	static Logger log=Logger.getLogger();

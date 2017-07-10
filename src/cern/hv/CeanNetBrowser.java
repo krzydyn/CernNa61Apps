@@ -20,13 +20,14 @@ import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
+import com.io.IOStream;
+
+import sys.Version;
+import sys.ui.UiUtils;
 import caen.CaenCrate;
 import caen.CaenNet;
 import caen.N470;
 import caen.SY527;
-import common.Version;
-import common.connection.Connection;
-import common.ui.UiUtils;
 
 @SuppressWarnings("serial")
 public class CeanNetBrowser extends JPanel implements ActionListener {
@@ -65,6 +66,7 @@ public class CeanNetBrowser extends JPanel implements ActionListener {
 		return null;
 	}
 
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		final String cmd=ev.getActionCommand();
 		if ("quit".equals(cmd))
@@ -90,8 +92,8 @@ public class CeanNetBrowser extends JPanel implements ActionListener {
 	public void scan_net() throws ConnectException, IOException
 	{
 		StringBuilder b=new StringBuilder();
-		Connection c = Connection.getConnection(addr);
-		c.connect();
+		IOStream c = IOStream.createIOStream(addr);
+		c.open();
 		caen.setIO(c);
 		caen.open();
 		for (int cr=1; cr<5; ++cr)
@@ -107,7 +109,6 @@ public class CeanNetBrowser extends JPanel implements ActionListener {
 			crates.add(m);
 		}
 		caen.close();
-		c.disconnect();
 		cratescb.removeAllItems();
 		for (int cr=0; cr<crates.size(); ++cr)
 			cratescb.addItem(crates.get(cr).getName());
@@ -127,6 +128,7 @@ public class CeanNetBrowser extends JPanel implements ActionListener {
 		f.setJMenuBar(panel.buildMenuBar());
 		f.setContentPane(panel);
 		f.addWindowListener(new WindowAdapter() {
+			@Override
 			public void windowClosing(WindowEvent e)
 			{
 				panel.actionPerformed(new ActionEvent(e.getSource(),e.getID(),"quit"));

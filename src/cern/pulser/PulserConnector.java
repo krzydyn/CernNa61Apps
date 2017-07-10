@@ -1,10 +1,11 @@
 package cern.pulser;
 
+import com.link.AbstractLink.LinkStateListener;
+
 import cern.pulser.Pulser.Firmware;
 import cern.pulser.Pulser.Module;
 import cern.pulser.Pulser.Voltage;
 import cern.pulser.Pulser.Waveform;
-import common.connection.link.AbstractLink.LinkStateListener;
 import conn.SyncConn;
 
 public class PulserConnector extends SyncConn {
@@ -17,6 +18,7 @@ public class PulserConnector extends SyncConn {
 		persistent=false;
 		dev.setLink(link);
 	}
+	@Override
 	protected int defaultPort() {return DEFAULT_PORT;}
 
 	public Firmware getFirmware(){return dev.getFirmware();}
@@ -30,16 +32,19 @@ public class PulserConnector extends SyncConn {
 
 	public void readFirmware() {
 		request(new Command(Pulser.CMD_FIRMVARE){
+			@Override
 			public int execute(){return dev.readFirmware(buf);}
 		});
 	}
 	public void readVoltage() {
 		request(new Command(Pulser.CMD_READ_VMON){
+			@Override
 			public int execute(){return dev.readVoltage(buf);}
 		});
 	}
 	public void resetVoltage() {
 		request(new Command(Pulser.CMD_RST_VMON){
+			@Override
 			public int execute(){return dev.resetVoltage(buf);}
 		});
 	}
@@ -49,6 +54,7 @@ public class PulserConnector extends SyncConn {
 	 */
 	public void readModules(){
 		request(new Command(Pulser.CMD_MODULES){
+			@Override
 			public int execute(){return dev.readModules(buf);}
 		});
 	}
@@ -59,6 +65,7 @@ public class PulserConnector extends SyncConn {
 	 */
 	public void readChannels(final int slot){
 		request(new Command(Pulser.CMD_CHANNELS_GET|(slot<<16)){
+			@Override
 			public int execute(){return dev.readChannels(buf,slot);}
 		});
 	}
@@ -69,6 +76,7 @@ public class PulserConnector extends SyncConn {
 	 */
 	public void writeChannels(final int slot,final int m){
 		request(new Command(Pulser.CMD_CHANNELS_SET|(slot<<16)){
+			@Override
 			public int execute(){return dev.writeChannels(buf,slot,m);}
 		});
 	}
@@ -79,47 +87,55 @@ public class PulserConnector extends SyncConn {
 	 */
 	public void readPowerStatus(final int slot){
 		request(new Command(Pulser.CMD_READ_POWER|(slot<<16)){
+			@Override
 			public int execute(){return dev.readPowerStatus(buf,slot);}
 		});
 	}
 	public void readWaveformNr(){
 		request(new Command(Pulser.CMD_GET_WAVE){
+			@Override
 			public int execute(){return dev.readWaveformNr(buf);}
 		});
 	}
 	public void writeWaveformNr(final int nr){
 		request(new Command(Pulser.CMD_SET_WAVE){
+			@Override
 			public int execute(){return dev.writeWaveformNr(buf,nr);}
 		});
 	}
 	/**
 	 * read stored waveform data from location nr
 	 * @param nr waveform number (0-3)
-	 * @return 
+	 * @return
 	 */
 	public void readWaveform(final int nr){
 		request(new Command(Pulser.CMD_READ_WAVE|(nr<<16)){
+			@Override
 			public int execute(){return dev.readWaveform(buf,nr);}
 		});
 	}
 	public void writeWaveform(final int nr){
 		request(new Command(Pulser.CMD_WRITE_WAVE|(nr<<16)){
+			@Override
 			public int execute(){
 				return dev.writeWaveform(buf,nr);}
 		});
 	}
 	public void readClockMask(){
 		request(new Command(Pulser.CMD_READ_CLOCK){
+			@Override
 			public int execute(){return dev.readClockMask(buf);}
 		});
 	}
 	public void writeClockMask(final int m) {
 		request(new Command(Pulser.CMD_INTERNAL_TOGGLE){
+			@Override
 			public int execute(){return dev.writeClockMask(buf,m);}
 		});
 	}
 
 	int idle_start=0;
+	@Override
 	protected void idle(){
 		/*if (idle_start>=7) idle_start=0;
 		int i;
@@ -131,5 +147,4 @@ public class PulserConnector extends SyncConn {
 			}
 		idle_start=i+1;*/
 	}
-
 }

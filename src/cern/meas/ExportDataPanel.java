@@ -18,9 +18,9 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
+import sys.Logger;
+import sys.StrUtil;
 import channel.ChannelDef;
-import common.Logger;
-import common.StrUtil;
 
 @SuppressWarnings("serial")
 public class ExportDataPanel extends JPanel implements ActionListener {
@@ -60,6 +60,7 @@ public class ExportDataPanel extends JPanel implements ActionListener {
 		add(new JScrollPane(li),constr);
 		chList=li;
 	}
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		final String cmd=ev.getActionCommand();
 		if ("av2ch".equals(cmd) || "ch2av".equals(cmd))

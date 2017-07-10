@@ -19,10 +19,10 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 
+import sys.Logger;
+import sys.SysUtil;
 import cern.meas.MeasView.ViewChannelsInfo;
 import channel.ChannelDef;
-import common.Logger;
-import common.SysUtil;
 
 @SuppressWarnings("serial")
 public class DataSaver extends JPanel {
@@ -97,7 +97,9 @@ public class DataSaver extends JPanel {
 		public DataChanel(DataSaver dataSaver) {
 			this.dataSaver=dataSaver;
 		}
+		@Override
 		public void addValue(ChannelDef def,long tm, float v) {}
+		@Override
 		public void addValues(ChannelDef def,List<PntData> v) {
 			dataSaver.save(v);
 		}

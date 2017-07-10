@@ -2,6 +2,7 @@ package cern.lv;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
@@ -24,14 +25,17 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 
-import common.SysUtil;
-import common.Version;
-import common.connection.link.AbstractLink;
-import common.connection.link.AbstractLink.LinkStateListener;
-import common.crypt.Encryptor;
-import common.ui.MainPanel;
-import common.ui.UiUtils;
-import common.util.Resource;
+import caen.CaenNet;
+
+import com.link.AbstractLink.LinkStateListener;
+
+import sys.Resource;
+import sys.Sound;
+import sys.SysUtil;
+import sys.Version;
+import sys.ui.MainPanel;
+import sys.ui.UiUtils;
+import utils.IntToken;
 import conn.AbstrConn.ConnectorListener;
 import epics.JcaConn;
 
@@ -44,7 +48,7 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 	final static int UNLOCK_INTERVAL=60;
 	final static int UPDATE_INTERVAL=10;
 	final static int CHECKHW_INTERVAL=31;
-	
+
 	//control state changed (locked/unlocled)
 	final private ActionEvent updCtl = new ActionEvent(this, 0, "updCtl");
 	//channel value changed
@@ -63,7 +67,7 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 	private final ArrayList<LVChannel> chns = new ArrayList<LVChannel>();
 	static Map<String,LVChannel> pvmap=new HashMap<String,LVChannel>();
 	private final ArrayList<ActionListener> chnlners = new ArrayList<ActionListener>();
-	
+
 	private static final Properties config = new Properties();
 	private boolean dlgOn=false;
 
@@ -110,7 +114,7 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 		b.setActionCommand("help");
 		b.addActionListener(this);
 		add(p, BorderLayout.NORTH);
-		
+
 		dconn.setEnabled(false);
 		rx.setOpaque(true);
 		tx.setOpaque(true);
@@ -120,33 +124,29 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 			return;
 		}
 		addr=config.getProperty("vme.host");
-		
+
 		add(tabs, BorderLayout.CENTER);
 		tabs.addTab("TPC", new JScrollPane(new LVTPCView(this)));
+
 		if (connector==null) connector=new JcaConn();
 		connector.setConnectorListener(this);
 		connector.getLink().setStateListener(new LinkStateListener() {
-			public void stateChanged(final int st) {
-				invokeLater(new Runnable() {
+			@Override
+			public void stateChanged(final int state) {
+				EventQueue.invokeLater(new Runnable() {
+					@Override
 					public void run() {
-						if (st == AbstractLink.STATE_RECV) {
-							rx.setBackground(Color.GREEN);
-							tx.setBackground(getBackground());
-						}
-						else if (st == AbstractLink.STATE_SEND) {
-							rx.setBackground(getBackground());
-							tx.setBackground(Color.GREEN);
-						}
-						else {
-							rx.setBackground(getBackground());
-							tx.setBackground(getBackground());
-						}
+						if ((state & CaenNet.STATE_RECV) != 0) rx.setBackground(Color.GREEN);
+						else rx.setBackground(getBackground());
+						if ((state & CaenNet.STATE_SEND) != 0) tx.setBackground(Color.GREEN);
+						else tx.setBackground(getBackground());
 					}
 				});
 			}
 		});
 	}
-	
+
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		final String cmd = ev.getActionCommand();
 		log.info("Action: %s",cmd);
@@ -164,7 +164,7 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 		} else if ("alloff".equals(cmd)) {
 			if (locked) { return; }
 			if (!showConfim("Are you sure to switch all channels OFF?")) return ;
-			fire(new ActionEvent(this,0,"off"));
+			fireAction(new ActionEvent(this,0,"off"));
 		} else if ("disconn".equals(cmd)) {
 			disconnect();
 		} else if ("unlock".equals(cmd)) {
@@ -182,7 +182,7 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 		}
 		unlock.setText(locked ? "Unlock" : "Lock");
 		// notify Listeners control changed
-		fire(updCtl);
+		fireAction(updCtl);
 		log.info("Application %s",locked?"LOCKED":"UNLOCKED");
 		tmLock=System.currentTimeMillis()/1000+UNLOCK_INTERVAL;
 		tmQuickread=0;
@@ -208,6 +208,7 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 		if (a<0||b<0||c<0) return -1;
 		return (a<<10)+(b<<7)+(c<<2);
 	}
+	@Override
 	public SectorGroup getBindings(String id) {
 		SectorGroup g=new SectorGroup();
 		Properties p = config;
@@ -241,28 +242,25 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 		log.debug("group %s: %d chns",id,chns);
 		return g;
 	}
+	@Override
 	public boolean showConfim(String msg) {
-		String code=String.valueOf(Encryptor.genToken(4));
+		String code=String.valueOf(IntToken.generate(4));
 		String in=JOptionPane.showInputDialog(this,
 				msg+"\nEnter confirmation token:  "+code,"Warning",JOptionPane.WARNING_MESSAGE);
 		if (in==null) return false;
 		return Version.getInstance().DEBUG ? true:code.equals(in);
-	}
-	private void fire(ActionEvent a){
-		for (int i = 0; i < chnlners.size(); ++i) {
-			ActionListener l = chnlners.get(i);
-			l.actionPerformed(a);
-		}
 	}
 	public final void fireAction(final ActionEvent a){
 		if (chnlners.size()==0) {
 			log.error("no listeners to fire");
 			return ;
 		}
-		invokeLater(new Runnable(){
-			public void run() { fire(a); }
-		});
+		for (int i = 0; i < chnlners.size(); ++i) {
+			ActionListener l = chnlners.get(i);
+			l.actionPerformed(a);
+		}
 	}
+	@Override
 	public void addChannelListener(ActionListener al) {
 		if (!chnlners.contains(al)) chnlners.add(al);
 		if (al instanceof SectorUI){
@@ -279,14 +277,17 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 			//chns.addAll(ui.getChnList());
 		}
 	}
+	@Override
 	public void removeChannelListener(ActionListener al) {
 		chnlners.remove(al);
 	}
+	@Override
 	public boolean isLocked() {
 		return locked;
 	}
 	private long tmQuickread=0;
 	//request to write channel status value
+	@Override
 	public void writeChannelStatus(LVChannel c, int st) {
 		if (c==null || c.addr<0) return ;
 		if (isLocked()) return ;
@@ -298,17 +299,23 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 	}
 	private Thread readThread;
 	//connector interface
+	@Override
 	public void connected() {
-		invokeLater(new Runnable(){
+		EventQueue.invokeLater(new Runnable(){
+			@Override
 			public void run(){
 				dconn.setEnabled(true);
 				dconn.requestFocus();
 			}
 		});
+
 		readThread=new Thread(new Runnable() {
+			@Override
 			public void run() {
 				try{
 					readLoop();
+				}catch(Throwable e) {
+					log.error(e);
 				}finally {
 					readThread=null;
 				}
@@ -316,10 +323,12 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 		});
 		readThread.start();
 	}
+	@Override
 	public void disconnected() {
 		if(readThread!=null)
 			readThread.interrupt();
-		invokeLater(new Runnable(){
+		EventQueue.invokeLater(new Runnable(){
+			@Override
 			public void run(){
 				conn.setEnabled(true);
 				dconn.setEnabled(false);
@@ -327,13 +336,28 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 			}
 		});
 	}
-	public void exception(Exception e) {
+	@Override
+	public void exception(final Exception e) {
 		log.error(e,"connector exception");
+		SwingUtilities.invokeLater(new Runnable(){
+			@Override
+			public void run(){
+				StringBuilder b=new StringBuilder();
+				b.append(e.getMessage()+"\n");
+				if ((e.getCause())!=null){
+					b.append("\nCaused by: "+e.getCause().getMessage());
+				}
+				Sound.play("res/audio/ding.wav");
+				UiUtils.messageBox(LVControlJca.this,"Error",b.toString(),JOptionPane.ERROR_MESSAGE);
+			}
+		});
 	}
+	@Override
 	public void execDone(int id) {
 	}
 	private boolean sendUpdChn=false;
 	private final int[] pciErr=new int[]{0,0};
+	@Override
 	public void readDone(int r, String pv, float[] v) {
 		if (r<0) {
 			log.error("read(%s) r=%d",pv,r);
@@ -348,7 +372,7 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 			pciErr[pci]=err;
 			return ;
 		}
-		
+
 		//log.debug("read(%s) done, r=%d, v=%d",pv,r,(int)v[0]);
 		//find LVChacnnel for pv
 		String cpv=pv.substring(0,pv.lastIndexOf(':')+1);
@@ -367,10 +391,11 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 		}
 		else log.error("unknown pv=%s",pv);
 	}
+	@Override
 	public void writeDone(int r, String pv) {
 		log.debug("write(%s) done, r=%d",pv,r);
 	}
-	
+
 	final static private String pciErrPVfmt="LV:DaisyChain:%d:Error";
 	private void initHW(){
 		connector.writePv("LV:VTPC1:Monitor",1);
@@ -392,7 +417,8 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 		if (dlgOn) return ;
 		dlgOn=true;
 		final int[] pe={pciErr[0],pciErr[1]};
-		invokeLater(new Runnable(){
+		EventQueue.invokeLater(new Runnable(){
+			@Override
 			public void run(){
 				String[] crate={"MTPC create","VTPC create"};
 				StringBuilder b=new StringBuilder();
@@ -431,15 +457,19 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 				}
 				tmread=tm+UPDATE_INTERVAL;
 			}
-			SysUtil.delay(1000);
 			if (sendUpdChn) {
 				sendUpdChn=false;
-				fireAction(updChn);
+				EventQueue.invokeLater(new Runnable(){
+					@Override
+					public void run() { fireAction(updChn); }
+				});
 			}
+			SysUtil.delay(1000);
 			if (!isLocked() && tmLock<tm)
-				setLocked(true);			
+				setLocked(true);
 		}
 	}
+	@Override
 	protected void exiting(){
 		disconnect();
 	}
@@ -468,9 +498,14 @@ public class LVControlJca extends MainPanel implements ActionListener,LVControlI
 	public static void main(String[] args) {
 		loadConfig(args);
 		UiUtils.macify(appname);
+		final LVControlJca p=(LVControlJca)startGUI(appname,LVControlJca.class);
+		//TODO set icon
+		//try{icon=new ImageIcon(ImageIO.read(Resource.getResourceURL("res/hvico.jpg")));}
+		//catch (Exception e) {}
+		//UiUtils.setIcon(p.getTopFrame(), icon);
 		SwingUtilities.invokeLater(new Runnable() {
+			@Override
 			public void run() {
-				LVControlJca p=(LVControlJca)startGUI(appname,LVControlJca.class);
 				p.actionPerformed(new ActionEvent(p,0,"conn"));
 			}
 		});

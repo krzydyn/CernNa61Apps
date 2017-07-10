@@ -21,9 +21,9 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.border.Border;
 
-import common.Logger;
-import common.ui.UiUtils;
-import common.util.Resource;
+import sys.Logger;
+import sys.Resource;
+import sys.ui.UiUtils;
 
 @SuppressWarnings("serial")
 class SectorUI extends JPanel implements ActionListener {
@@ -71,6 +71,7 @@ class SectorUI extends JPanel implements ActionListener {
 		this.sector=sector;
 
 		mouseActions=new MouseAdapter(){
+			@Override
 			public void mouseClicked(MouseEvent ev){
 				if (ev.getButton()==MouseEvent.BUTTON1 && ev.getClickCount()==2) {
 					infoEvent.setSource(ev.getComponent());
@@ -100,6 +101,7 @@ class SectorUI extends JPanel implements ActionListener {
 		else {
 			b=new JButton("On");
 			b.setFont(onofffont);
+			UiUtils.makeSimpleButton(b);
 		}
 		b.setToolTipText("Sector ON");
 		b.setMargin(null);
@@ -115,6 +117,7 @@ class SectorUI extends JPanel implements ActionListener {
 		else {
 			b=new JButton("Off");
 			b.setFont(onofffont);
+			UiUtils.makeSimpleButton(b);
 		}
 		b.setToolTipText("Sector OFF");
 		b.setMargin(null);
@@ -158,6 +161,7 @@ class SectorUI extends JPanel implements ActionListener {
 	public void setGroup(SectorGroupUI g){grp=g;}
 	public ArrayList<LVChannel> getChnList(){return sector.chnlist;}
 
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		String cmd=ev.getActionCommand();
 		if ("updCtl".equals(cmd)) {

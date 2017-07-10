@@ -1,9 +1,9 @@
 package cern.lv;
 
+import sys.Logger;
+import sys.StrUtil;
 import channel.ChannelData;
 import channel.ChannelDef;
-import common.Logger;
-import common.StrUtil;
 
 public class LVChannel extends ChannelData {
 	final static private String readChnNPVfmt="LV:%s:%s:%d:";
@@ -32,6 +32,7 @@ public class LVChannel extends ChannelData {
 		this.addr=addr;
 		this.lvc=lvc;
 	}
+	@Override
 	public boolean equals(Object o){
 		if (o instanceof LVChannel){
 			LVChannel l=(LVChannel)o;
@@ -46,7 +47,7 @@ public class LVChannel extends ChannelData {
 		else if ((status&(1<<14))==0) return false;//off
 		return true;
 	}
-	
+
 	static public void setNamePv(LVChannel c){
 		if (c.addr>=0 && c.def.pv==null){
 			if (c.sector==null || c.sector.grp==null) {
@@ -75,5 +76,5 @@ public class LVChannel extends ChannelData {
 		int status=-1;
 		int alarm=0;
 	}*/
-	
+
 }

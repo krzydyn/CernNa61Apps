@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -38,17 +39,18 @@ import javax.swing.UIManager;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
 
+import com.link.AbstractLink.LinkStateListener;
+
+import sys.Logger;
+import sys.Resource;
+import sys.Sound;
+import sys.Version;
+import sys.ui.UiUtils;
+import utils.IntToken;
+import caen.CaenNet;
 import cern.pulser.Pulser.Firmware;
 import cern.pulser.Pulser.Voltage;
 import cern.pulser.Pulser.Waveform;
-import common.Logger;
-import common.Version;
-import common.connection.link.AbstractLink;
-import common.connection.link.AbstractLink.LinkStateListener;
-import common.crypt.Encryptor;
-import common.ui.AudioPlayerWav;
-import common.ui.UiUtils;
-import common.util.Resource;
 import conn.AbstrConn.ConnectorListener;
 /*
  * Changelog
@@ -64,7 +66,7 @@ public class PulserControl extends JPanel implements ActionListener, ConnectorLi
 	final static String appname = "Pulser Control";
 	final static String appdescr = "Calibration Pulser";
 	final static String author = "Krzysztof.Dynowski@cern.ch";
-	
+
 	final static String[] ADDRs={"na61dcs1.cern.ch:10001","na61dcs1.cern.ch:10002","localhost:10001","localhost:10002"};
 	//final static String[] ADDRs={"localhost:10001","localhost:10002"};
 
@@ -221,13 +223,14 @@ public class PulserControl extends JPanel implements ActionListener, ConnectorLi
 		b.setActionCommand("setclk");
 		(sz=b.getPreferredSize()).height=18;
 		b.setPreferredSize(sz);
-		
+
 		constr.fill=GridBagConstraints.BOTH;
 		constr.weighty=1;
 		p.add(modules,constr);
 		return p;
 	}
-	
+
+	@Override
 	public void actionPerformed(ActionEvent ev) {
 		final String cmd = ev.getActionCommand();
 		log.info("Action: %s",cmd);
@@ -262,7 +265,7 @@ public class PulserControl extends JPanel implements ActionListener, ConnectorLi
 				if (clk[i].isSelected()) m|=1<<i;
 			connector.writeClockMask(m);
 			connector.readClockMask();
-		} 
+		}
 	}
 
 	private void connect() {
@@ -291,8 +294,10 @@ public class PulserControl extends JPanel implements ActionListener, ConnectorLi
 		log.info("Application %s",locked?"LOCKED":"UNLOCKED");
 	}
 
+	@Override
 	public void connected(){
 		SwingUtilities.invokeLater(new Runnable(){
+			@Override
 			public void run(){
 				dconn.setEnabled(true);
 				connector.readFirmware();
@@ -303,8 +308,10 @@ public class PulserControl extends JPanel implements ActionListener, ConnectorLi
 			}
 		});
 	}
+	@Override
 	public void disconnected(){
 		SwingUtilities.invokeLater(new Runnable(){
+			@Override
 			public void run(){
 				conn.setEnabled(true);
 				dconn.setEnabled(false);
@@ -361,67 +368,64 @@ public class PulserControl extends JPanel implements ActionListener, ConnectorLi
 		else if (cmd==Pulser.CMD_READ_POWER){
 			JComponent c=(JComponent)modules.getComponent(id);
 			if (c instanceof PulserModule) ((PulserModule)c).updatePwr();
-			else log.debug("not a PulserModule");			
+			else log.debug("not a PulserModule");
 		}
 		else if (cmd==Pulser.CMD_CHANNELS_GET){
 			JComponent c=(JComponent)modules.getComponent(id);
 			if (c instanceof PulserModule) ((PulserModule)c).updateChns();
 			else log.debug("not a PulserModule");
-		}		
+		}
 	}
-	
+
+	@Override
 	public void execDone(final int id){
 		SwingUtilities.invokeLater(new Runnable(){
+			@Override
 			public void run(){responseGUI(id);}
 		});
 	}
+	@Override
 	public void readDone(int r, String pv, float[] v) {}
+	@Override
 	public void writeDone(int r, String pv) {}
 
+	@Override
 	public void exception(final Exception e) {
 		log.error(e);
 		SwingUtilities.invokeLater(new Runnable(){
+			@Override
 			public void run(){
 				StringBuilder b=new StringBuilder();
 				b.append(e.getMessage()+"\n");
 				if ((e.getCause())!=null){
 					b.append("\nCaused by: "+e.getCause().getMessage());
 				}
-				AudioPlayerWav.play("ding");
+				Sound.play("res/audio/ding.wav");
 				UiUtils.messageBox(PulserControl.this,"Error",b.toString(),JOptionPane.ERROR_MESSAGE);
 			}
 		});
 	}
+	@Override
 	public void stateChanged(final int state) {
-		if (state==0) {
-			log.debug(new Throwable("bt"),"RXTX zero");
-		}
-		SwingUtilities.invokeLater(new Runnable() {
+		EventQueue.invokeLater(new Runnable() {
+			@Override
 			public void run() {
-				if (state == AbstractLink.STATE_RECV) {
-					rx.setBackground(Color.GREEN);
-					tx.setBackground(getBackground());
-				}
-				else if (state == AbstractLink.STATE_SEND) {
-					rx.setBackground(getBackground());
-					tx.setBackground(Color.GREEN);
-				}
-				else {
-					rx.setBackground(getBackground());
-					tx.setBackground(getBackground());
-				}
+				if ((state & CaenNet.STATE_RECV) != 0) rx.setBackground(Color.GREEN);
+				else rx.setBackground(getBackground());
+				if ((state & CaenNet.STATE_SEND) != 0) tx.setBackground(Color.GREEN);
+				else tx.setBackground(getBackground());
 			}
 		});
 	}
 
 	static public boolean showConfim(Component p,String msg) {
-		String code=String.valueOf(Encryptor.genToken(4));
+		String code=String.valueOf(IntToken.generate(4));
 		String in=JOptionPane.showInputDialog(p,
 				msg+"\nEnter confirmation token:  "+code,"Warning",JOptionPane.WARNING_MESSAGE);
 		if (in==null) return false;
 		return Version.getInstance().DEBUG ? true:code.equals(in);
 	}
-	
+
 	static void startGUI(){
 		ImageIcon icon=null;
 		UiUtils.setupUIManagerFonts();
@@ -436,12 +440,14 @@ public class PulserControl extends JPanel implements ActionListener, ConnectorLi
 		f.setJMenuBar(panel.buildMenuBar());
 		f.setContentPane(panel);
 		f.addWindowListener(new WindowAdapter() {
+			@Override
 			public void windowClosing(WindowEvent e) {
 				panel.actionPerformed(new ActionEvent(e.getSource(), e.getID(),
 						"quit"));
 			}
 		});
 		f.addMouseListener(new MouseAdapter(){
+			@Override
 			public void mouseEntered(MouseEvent e) {
 				f.setCursor(Cursor.getDefaultCursor());
 			}
@@ -460,6 +466,7 @@ public class PulserControl extends JPanel implements ActionListener, ConnectorLi
 		Version.createInstance(PulserControl.class);
 		//loadConfig(args);
 		SwingUtilities.invokeLater(new Runnable() {
+			@Override
 			public void run() { startGUI(); }
 		});
 	}

@@ -31,11 +31,12 @@ import javax.swing.event.ListSelectionListener;
 
 import plot.PlotXY;
 import plot.PlotXY.ChannelParams;
+import sys.ui.DialogPanel;
+import sys.ui.UiUtils;
 import cern.meas.MeasView.ViewChannelsInfo;
 import channel.ChannelDef;
 import channel.ui.ChannelSelector;
-import common.ui.DialogPanel;
-import common.ui.UiUtils;
+
 
 @SuppressWarnings("serial")
 public class PageConf extends DialogPanel {
@@ -47,11 +48,11 @@ public class PageConf extends DialogPanel {
 	private final JTextField pgname=new JTextField(15);
 	private final JComboBox<String> cols=new JComboBox<String>(new String[]{"1","2","3","4","5"});
 	private final JComboBox<String> rows=new JComboBox<String>(new String[]{"1","2","3","4","5"});
-	
+
 	private final JPanel userPanel=new JPanel();
 	private JScrollPane sel=null;
-	private JButton addChn,delChn,colorChn;
-	
+	private final JButton addChn,delChn,colorChn;
+
 	public PageConf(List<ChannelDef> vpd) {
 		super(new GridBagLayout());
 		this.vpd = vpd;
@@ -83,7 +84,7 @@ public class PageConf extends DialogPanel {
 		constr.gridwidth = 6;
 		constr.weighty=constr.weightx=1;
 		add(userPanel,constr);
-		
+
 		constr.gridwidth = GridBagConstraints.REMAINDER;
 		constr.weighty=constr.weightx=0;
 		JPanel p=new JPanel(new GridBagLayout());
@@ -147,13 +148,15 @@ public class PageConf extends DialogPanel {
 						new DefaultListModel<ChannelDef>());
 				final JScrollPane sp=new JScrollPane(l,
 						ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
-						ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);	
+						ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 				sp.setBorder(unfocusBorder);
 				sp.setPreferredSize(new Dimension(120,35));//height ~1.5 line in JList
-				
+
 				l.addFocusListener(new FocusListener() {
+					@Override
 					public void focusLost(FocusEvent e) {
 					}
+					@Override
 					public void focusGained(FocusEvent e) {
 						if (sel!=null) {
 							if (sel==sp) return ;
@@ -170,8 +173,9 @@ public class PageConf extends DialogPanel {
 					}
 				});
 				l.addListSelectionListener(new ListSelectionListener() {
+					@Override
 					public void valueChanged(ListSelectionEvent e) {
-						setColorButton(l);			
+						setColorButton(l);
 					}
 				});
 				userPanel.add(sp);
@@ -196,7 +200,7 @@ public class PageConf extends DialogPanel {
 			DefaultListModel<ChannelDef> lm=(DefaultListModel<ChannelDef>)l.getModel();
 			lm.clear();
 			if (i>=vlist.size()) continue;
-			
+
 			ViewChannelsInfo vci=vlist.get(i);
 			if (vci==null) continue;
 			for (int j=0; j<vci.defs.size(); ++j) {
@@ -236,8 +240,9 @@ public class PageConf extends DialogPanel {
 				return ;
 			}
 		}
-		colorChn.setBackground(this.getBackground());		
+		colorChn.setBackground(this.getBackground());
 	}
+	@Override
 	@SuppressWarnings("unchecked")
 	public void actionPerformed(ActionEvent ev) {
 		final String cmd=ev.getActionCommand();
@@ -249,13 +254,13 @@ public class PageConf extends DialogPanel {
 			return ;
 		}
 		else if ("addchn".equals(cmd)) {
-			if (sel==null) return ;			
+			if (sel==null) return ;
 			List<ChannelDef> cur=null;
 			for (int i=0; i<userPanel.getComponentCount(); ++i) {
 				if (sel==userPanel.getComponent(i))
 					{cur=vlist.get(i).defs; break;}
 			}
-			
+
 			ChannelSelector p=new ChannelSelector(vpd,cur);
 			if (p.getItems()<=0) {
 				UiUtils.messageBox(null, "Adding Channel", "No more elements available", JOptionPane.WARNING_MESSAGE);

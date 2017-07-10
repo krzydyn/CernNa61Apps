@@ -8,13 +8,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import com.io.IOStream;
+import com.link.TCP;
+
+import sys.Logger;
+import sys.StrUtil;
+import sys.SysUtil;
 import channel.ChannelDef;
-import common.Logger;
-import common.StrUtil;
-import common.SysUtil;
-import common.connection.Connection;
-import common.connection.link.TCP;
-import common.io.IOStream;
 import conn.AbstrConn.ConnectorListener;
 import epics.JcaConn;
 
@@ -80,9 +80,9 @@ public class CASaver {
 			return ;
 		}
 		if (dbserver!=null && dbserver.indexOf(":")>0){
-			Connection c=Connection.getConnection(dbserver);
+			IOStream c=IOStream.createIOStream(dbserver);
 			try{
-				c.connect();
+				c.open();
 				TCP link=new TCP();
 				link.setIO(c);
 				do{
@@ -93,18 +93,23 @@ public class CASaver {
 					log.debug("recv: %s",buf.toString());
 				}while(false);
 			}catch (Exception e) {log.debug(e);}
-			finally{c.disconnect();}
+			finally{c.close();}
 		} else log.info("* buf[%d]:%s",buf.length(),buf.toString());
 		buf=null;
-	}		
+	}
 	static ConnectorListener connli=new ConnectorListener(){
+		@Override
 		public void connected() {
 		}
+		@Override
 		public void disconnected() {
 		}
+		@Override
 		public void exception(Exception e) {
 		}
+		@Override
 		public void execDone(int id){}
+		@Override
 		public void readDone(int r, String pv, float[] v) {
 			SaveChannelDef chn=pvmap.get(pv);
 			if (chn==null) return ;
@@ -121,6 +126,7 @@ public class CASaver {
 				log.error("readpv(%s) err %d",chn.name,r);
 			}
 		}
+		@Override
 		public void writeDone(int r, String pv) {
 			SaveChannelDef chn=pvmap.get(pv);
 			if (chn==null) return ;
@@ -146,13 +152,13 @@ public class CASaver {
 		jca.setAddr(addr_list);
 		jca.start();
 		jca.sendInit(null);//or "client@host"
-		
+
 		long readTm,sendTm;
 		long tm=System.currentTimeMillis()/1000;
 		sendTm=readTm=tm;
 		readTm+=readPeriod-1; readTm/=readPeriod; readTm*=readPeriod;
 		sendTm+=sendPeriod-1; sendTm/=sendPeriod; sendTm*=sendPeriod;
-		
+
 		log.info("Next send in %d secs",sendTm-tm);
 		log.info("Next read in %d secs",readTm-tm);
 		for(;!Thread.currentThread().isInterrupted();) {
@@ -173,11 +179,11 @@ public class CASaver {
 				readTm+=readPeriod;
 				if (readTm<tm){
 					readTm=tm;
-					readTm+=readPeriod-1; readTm/=readPeriod; readTm*=readPeriod;					
+					readTm+=readPeriod-1; readTm/=readPeriod; readTm*=readPeriod;
 				}
 				log.info("Next read in %d secs",readTm-tm);
 			}
-			if (sendTm<tm && done==chndefs.size()){			
+			if (sendTm<tm && done==chndefs.size()){
 				sendToDB();
 				sendTm+=sendPeriod;
 				if (sendTm<readTm+5) sendTm=readTm+5;
@@ -185,7 +191,7 @@ public class CASaver {
 			}
 		}
 	}
-	
+
 	static class SaveChannelDef extends ChannelDef {
 		public SaveChannelDef(String nm) { super(0,nm); }
 		public void resetData() {sum=0;cnt=0;}

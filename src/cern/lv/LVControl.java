@@ -31,19 +31,15 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
-import javax.swing.event.ChangeEvent;
+import com.link.AbstractLink;
+import com.link.AbstractLink.LinkStateListener;
 
-import channel.ChannelData;
-import common.Logger;
-import common.SysUtil;
-import common.Version;
-import common.connection.link.AbstractLink;
-import common.connection.link.AbstractLink.LinkStateListener;
-import common.crypt.Encryptor;
-import common.ui.AudioPlayerWav;
-import common.ui.UiUtils;
-import common.util.Resource;
-import conn.AbstrConn;
+import sys.Logger;
+import sys.Resource;
+import sys.Sound;
+import sys.Version;
+import sys.ui.UiUtils;
+import utils.IntToken;
 import conn.AbstrConn.ConnectorListener;
 import conn.SyncConn;
 
@@ -70,6 +66,7 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 	private final JLabel rx, tx;
 
 	private static final Properties config = new Properties();
+	private final ArrayList<ActionListener> chnlners = new ArrayList<ActionListener>();
 
 	public LVControl() {
 		super(new BorderLayout());
@@ -131,24 +128,25 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 		if (connName!=null)
 		try{
 			if (connName.indexOf('.')<0) connName=prefix+"."+connName;
-			connector=(SyncConn)SysUtil.loadClass(connName).newInstance();
+			//connector=(SyncConn)SysUtil.loadClass(connName).newInstance();
 		}catch (Exception e) { log.error(e); }
-
-		addr=config.getProperty("vme.host");
-		if (connector==null) connector=new LVConnectorVmeSync();
-		connector.setConnectorListener(this);
-		connector.getLink().setStateListener(this);
+		if (connector==null) connector=new LVConnectorSync();
 
 		add(tabs, BorderLayout.CENTER);
 		tabs.addTab("TPC", new JScrollPane(new LVTPCView(this)));
+
+		addr=config.getProperty("vme.host");
+		connector.setConnectorListener(this);
+		connector.getLink().setStateListener(this);
 	}
 
 	public JMenuBar buildMenuBar() {
 		return null;
 	}
+
 	@Override
 	public void addChannelListener(final ActionListener al) {
-		connector.addChannelListener(al);
+		if (!chnlners.contains(al)) chnlners.add(al);
 		if (al instanceof SectorUI){
 			SectorUI ui=(SectorUI)al;
 			ArrayList<LVChannel> chns=ui.getChnList();
@@ -163,7 +161,18 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 	}
 	@Override
 	public void removeChannelListener(final ActionListener al) {
-		connector.removeChannelListener(al);
+		chnlners.remove(al);
+	}
+
+	public final void fireAction(final ActionEvent a){
+		if (chnlners.size()==0) {
+			log.error("no listeners to fire");
+			return ;
+		}
+		for (int i = 0; i < chnlners.size(); ++i) {
+			ActionListener l = chnlners.get(i);
+			l.actionPerformed(a);
+		}
 	}
 
 	@Override
@@ -184,7 +193,7 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 		} else if ("alloff".equals(cmd)) {
 			if (locked) { return; }
 			if (!showConfim("Are you sure to switch all channels OFF?")) return ;
-			connector.fireAction(new ActionEvent(this,0,"off"));
+			fireAction(new ActionEvent(this,0,"off"));
 		} else if ("disconn".equals(cmd)) {
 			//if (!showConfim("Are you sure to disconnect?")) return ;
 			disconnect();
@@ -221,7 +230,7 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 				if ((e.getCause())!=null){
 					b.append("\nCaused by: "+e.getCause().getMessage());
 				}
-				AudioPlayerWav.play("ding");
+				Sound.play("res/audio/ding.wav");
 				UiUtils.messageBox(LVControl.this,"Error",b.toString(),JOptionPane.ERROR_MESSAGE);
 			}
 		});
@@ -229,7 +238,7 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 
 	@Override
 	public boolean showConfim(String msg) {
-		String code=String.valueOf(Encryptor.genToken(4));
+		String code=String.valueOf(IntToken.generate(4));
 		String in=JOptionPane.showInputDialog(this,
 				msg+"\nEnter confirmation token:  "+code,"Warning",JOptionPane.WARNING_MESSAGE);
 		if (in==null) return false;
@@ -249,6 +258,7 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 		if (connector==null) return ;
 		connector.stop();
 	}
+
 	@Override
 	public boolean isLocked() { return locked; }
 	private void setLocked(boolean lock) {
@@ -262,7 +272,7 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 		}
 		unlock.setText(locked ? "Unlock" : "Lock");
 		// notify Listeners control changed
-		connector.fireAction(updCtl);
+		fireAction(updCtl);
 		log.info("Application %s",locked?"LOCKED":"UNLOCKED");
 		lockTm=System.currentTimeMillis()+60*1000;
 	}
@@ -313,6 +323,39 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 		log.debug("group %s: %d chns",id,chns);
 		return g;
 	}
+
+
+	@Override
+	public void execDone(int id){}
+
+	@Override
+	public void readDone(int r, String pv, float[] v) {
+	}
+
+	@Override
+	public void writeDone(int r, String pv) {
+		log.debug("write(%s) done, r=%d",pv,r);	}
+
+	@Override
+	public void stateChanged(int st) {
+		if (!isLocked() && lockTm<System.currentTimeMillis())
+			setLocked(true);
+		int state = st;
+		if ((state & AbstractLink.STATE_RECV) != 0) rx.setBackground(Color.GREEN);
+		else rx.setBackground(getBackground());
+		if ((state & AbstractLink.STATE_SEND) != 0) tx.setBackground(Color.GREEN);
+		else tx.setBackground(getBackground());
+
+		if (state==0){
+			//TODO read error message from connector or link layer
+			StringBuilder err=new StringBuilder();
+			//connector.getErrorMsg(err);
+			if (err.length()>0){
+				UiUtils.messageBox(LVControl.this,"Error","Hardware communication problem\n\n"+err.toString(),JOptionPane.ERROR_MESSAGE);
+			}
+		}
+	}
+
 	private static void loadConfig(String[] args) {
 		boolean ret=false;
 		InputStream f = null;
@@ -334,6 +377,7 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 			else config.put(a.substring(0,p),a.substring(p+1));
 		}
 	}
+
 	public static void main(String[] args) {
 		ImageIcon icon=null;
 		Version.createInstance(LVControl.class);
@@ -344,7 +388,7 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 		final JFrame f = new JFrame(appname+" "+ Version.getInstance()+(panel.connector==null?"":", "+panel.connector.getName()));
 		try{icon=new ImageIcon(Resource.getResourceURL("res/lvico.jpg"));}
 		catch (Exception e) {}
-		if (icon!=null) f.setIconImage(icon.getImage());
+		UiUtils.setIcon(f, icon);
 		f.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		panel.setOpaque(true);
 		f.setJMenuBar(panel.buildMenuBar());
@@ -377,44 +421,5 @@ public class LVControl extends JPanel implements ActionListener, LinkStateListen
 				panel.actionPerformed(new ActionEvent(panel,0,"conn"));
 			}
 		});
-	}
-
-	@Override
-	public void execDone(int id){}
-
-	@Override
-	public void readDone(int r, String pv, float[] v) {
-		/*LVChannel c=(LVChannel)ch;
-		if (ch.def.pv.endsWith(".ALAR")){
-			c.alarm=getIntValue(o);
-		}
-		else if (ch.def.pv.endsWith(":Read")){
-			c.status=getIntValue(o);
-		}*/
-	}
-
-	@Override
-	public void writeDone(int r, String pv) {
-		if (pv==null) return ;
-		log.debug("r=%d, writepv(%s)",r,pv);
-	}
-
-	@Override
-	public void stateChanged(int st) {
-		if (!isLocked() && lockTm<System.currentTimeMillis())
-			setLocked(true);
-		int state = st;
-		if ((state & AbstractLink.STATE_RECV) != 0) rx.setBackground(Color.GREEN);
-		else rx.setBackground(getBackground());
-		if ((state & AbstractLink.STATE_SEND) != 0) tx.setBackground(Color.GREEN);
-		else tx.setBackground(getBackground());
-		if (state==0){
-			//TODO read error message from connector or link layer
-			StringBuilder err=new StringBuilder();
-			//connector.getErrorMsg(err);
-			if (err.length()>0){
-				UiUtils.messageBox(LVControl.this,"Error","Hardware communication problem\n\n"+err.toString(),JOptionPane.ERROR_MESSAGE);
-			}
-		}
 	}
 }
