@@ -67,7 +67,10 @@ public class PulserControl extends JPanel implements ActionListener, ConnectorLi
 	final static String appdescr = "Calibration Pulser";
 	final static String author = "Krzysztof.Dynowski@cern.ch";
 
-	final static String[] ADDRs={"na61dcs1.cern.ch:10001","na61dcs1.cern.ch:10002","localhost:10001","localhost:10002"};
+	final static String[] ADDRs={
+		"na61dcs.cern.ch:10001","na61dcs.cern.ch:10002",
+		"na61dcs1.cern.ch:10001","na61dcs1.cern.ch:10002",
+		"localhost:10001","localhost:10002"};
 	//final static String[] ADDRs={"localhost:10001","localhost:10002"};
 
 	private final PulserConnector connector=new PulserConnector(this);

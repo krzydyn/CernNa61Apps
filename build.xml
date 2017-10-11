@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<project name="CernApps" basedir="." default="Pulser Control">
+	<property name="JAVA_VERSION" value="1.7"/>
+	<property name="cernlibdir" value="../CernLib"/>
+	
+	<property name="build" value="build"/>
+	<tstamp>
+		<format property="BUILD_TIME" pattern="yyyy-MM-dd HH:mm:ss" />
+	</tstamp>
+
+	<target name="clean">
+		<delete dir="${build}"/>
+	</target>
+	
+	<target name="CernLib">
+		<ant dir="${cernlibdir}" antfile="build.xml" target="compile" />
+	</target>
+
+	<target name="Pulser Control" depends="CernLib">
+		<property name="version" value="1.05"/>
+		<property name="app" value="pulser"/>
+		<property name="main" value="cern.pulser.PulserControl"/>
+		<buildnumber file="${app}.build"/>
+		
+		<mkdir dir="${build}"/>
+		
+	    <javac srcdir="src" destdir="${build}" debug="true"
+	    	encoding="UTF-8" source="${JAVA_VERSION}" target="${JAVA_VERSION}"
+			includeantruntime="false"
+	    	includes="cern/pulser/**"
+	    	classpath="${cernlibdir}/${build}"
+	    />
+
+		<echo message="Build ${app}.jar ${version}-${build.number}"/>
+		<delete file="${app}.jar" failonerror="false"/>
+	    <jar destfile="${app}.jar">
+	    	<fileset dir="${cernlibdir}/${build}">
+				<include name="sys/**"/>
+	    		<include name="utils/*"/>
+	    		<include name="plot/*"/>
+	    		<include name="com/**"/>
+	    		<include name="conn/*"/>
+	    	</fileset>
+	    	<fileset dir="${build}">
+	    		<include name="cern/pulser/**"/>
+	    	</fileset>
+	    	<fileset dir="">
+	    		<include name="res/pulser*"/>
+	    		<include name="res/help/pulser/**"/>
+	    		<include name="res/led2.png"/>
+	    		<include name="res/snd/alarm.wav"/>
+	    		<include name="res/snd/ding.wav"/>
+	    	</fileset>	
+			<manifest>
+				<attribute name="Main-Class" value="${main}"/>
+				<attribute name="Implementation-Version"  value="${version}-${build.number}"/>
+				<attribute name="Built-Date" value="${BUILD_TIME}"/>
+			</manifest>
+		</jar>
+	</target>
+
+</project>

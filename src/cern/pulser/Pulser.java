@@ -328,7 +328,7 @@ public class Pulser {
 	public int command(int fn,StringBuilder b) {
 		if (link==null) return -1;
 		String msg=b.toString();
-		log.debug("send[%d]: %02X %s",b.length(),fn,StrUtil.vis(msg));
+		log.debug("send[%d]: F=%02X M=%s",b.length(),fn,StrUtil.vis(msg));
 		b.insert(0,(char)((fn<<8)&0xff));
 		b.insert(1,(char)(fn&0xff));
 		int r=link.send(b);
@@ -355,9 +355,12 @@ public class Pulser {
 				if(fnr!=fn+1) log.error("asyn %02X!=%02X msg=%s",fnr,fn,StrUtil.hex(msg));
 			}
 		} else fnr=r;
-		if (r<0) log.error("recv=%d: %02X msg=%s",r,fn,StrUtil.hex(msg));
-		else if (trycnt>2) log.warn("(%d)recv[%d]: %02X %s",trycnt,b.length(),fnr,StrUtil.vis(b));
-		else log.debug("recv[%d]: %02X %s",b.length(),fnr,StrUtil.vis(b,0,100));
+		if (r<0) {
+			log.error("recv=%d: F=%02X msg=%s",r,fn,StrUtil.hex(msg));
+			throw new RuntimeException(String.format("Connection broken\nrecv=%d: F=%02X", r, fn));
+		}
+		else if (trycnt>2) log.warn("(%d)recv[%d]: F=%02X %s",trycnt,b.length(),fnr,StrUtil.vis(b));
+		else log.debug("recv[%d]: F=%02X %s",b.length(),fnr,StrUtil.vis(b,0,100));
 		return fnr;
 	}
 
